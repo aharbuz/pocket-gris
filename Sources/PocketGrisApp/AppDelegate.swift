@@ -1,0 +1,187 @@
+import AppKit
+import PocketGrisCore
+
+final class AppDelegate: NSObject, NSApplicationDelegate {
+
+    private var statusItem: NSStatusItem!
+    private var creatureWindow: CreatureWindow?
+    private let spriteLoader = SpriteLoader()
+    private let scheduler = BehaviorScheduler()
+    private let ipcService = IPCService()
+    private var isEnabled = true
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        setupMenuBar()
+        setupIPC()
+        loadCreatures()
+        startScheduler()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        ipcService.stopListening()
+        ipcService.markGUIRunning(false)
+        scheduler.stop()
+    }
+
+    // MARK: - Menu Bar
+
+    private func setupMenuBar() {
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+
+        if let button = statusItem.button {
+            button.image = NSImage(systemSymbolName: "pawprint.fill", accessibilityDescription: "Pocket Gris")
+            button.image?.isTemplate = true
+        }
+
+        let menu = NSMenu()
+
+        menu.addItem(NSMenuItem(title: "Trigger Now", action: #selector(triggerNow), keyEquivalent: "t"))
+        menu.addItem(NSMenuItem.separator())
+
+        let enableItem = NSMenuItem(title: "Enabled", action: #selector(toggleEnabled), keyEquivalent: "e")
+        enableItem.state = isEnabled ? .on : .off
+        menu.addItem(enableItem)
+
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
+        menu.addItem(NSMenuItem.separator())
+        menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
+
+        statusItem.menu = menu
+    }
+
+    @objc private func triggerNow() {
+        scheduler.triggerNow()
+    }
+
+    @objc private func toggleEnabled() {
+        isEnabled.toggle()
+        updateMenuState()
+
+        var settings = Settings.load()
+        settings.enabled = isEnabled
+        try? settings.save()
+        scheduler.updateSettings(settings)
+    }
+
+    @objc private func openSettings() {
+        // TODO: Settings window
+        print("Settings not yet implemented")
+    }
+
+    @objc private func quit() {
+        NSApp.terminate(nil)
+    }
+
+    private func updateMenuState() {
+        guard let menu = statusItem.menu else { return }
+        for item in menu.items where item.action == #selector(toggleEnabled) {
+            item.state = isEnabled ? .on : .off
+        }
+    }
+
+    // MARK: - IPC
+
+    private func setupIPC() {
+        ipcService.markGUIRunning(true)
+        ipcService.startListening { [weak self] message in
+            self?.handleIPCMessage(message) ?? IPCResponse(success: false, message: "App not ready")
+        }
+    }
+
+    private func handleIPCMessage(_ message: IPCMessage) -> IPCResponse {
+        switch message.command {
+        case .trigger:
+            DispatchQueue.main.async { [weak self] in
+                if let creatureId = message.creature,
+                   let creature = self?.spriteLoader.creature(id: creatureId) {
+                    let behavior = message.behavior.flatMap { BehaviorType(rawValue: $0) }
+                    self?.scheduler.triggerNow(creature: creature, behavior: behavior)
+                } else {
+                    self?.scheduler.triggerNow()
+                }
+            }
+            return IPCResponse(success: true, message: "Triggered")
+
+        case .enable:
+            DispatchQueue.main.async { [weak self] in
+                self?.isEnabled = true
+                self?.updateMenuState()
+                var settings = Settings.load()
+                settings.enabled = true
+                try? settings.save()
+                self?.scheduler.updateSettings(settings)
+            }
+            return IPCResponse(success: true, message: "Enabled")
+
+        case .disable:
+            DispatchQueue.main.async { [weak self] in
+                self?.isEnabled = false
+                self?.updateMenuState()
+                var settings = Settings.load()
+                settings.enabled = false
+                try? settings.save()
+                self?.scheduler.updateSettings(settings)
+            }
+            return IPCResponse(success: true, message: "Disabled")
+
+        case .cancel:
+            DispatchQueue.main.async { [weak self] in
+                self?.creatureWindow?.close()
+                self?.creatureWindow = nil
+            }
+            return IPCResponse(success: true, message: "Cancelled")
+
+        case .status:
+            let creatures = spriteLoader.allCreatures()
+            return IPCResponse(
+                success: true,
+                message: nil,
+                data: [
+                    "enabled": String(isEnabled),
+                    "creatures": String(creatures.count),
+                    "windowVisible": String(creatureWindow != nil)
+                ]
+            )
+        }
+    }
+
+    // MARK: - Creatures
+
+    private func loadCreatures() {
+        let creatures = spriteLoader.loadAllCreatures()
+        scheduler.updateCreatures(creatures)
+        print("Loaded \(creatures.count) creatures")
+
+        if creatures.isEmpty {
+            print("No creatures found in Resources/Sprites/")
+            print("Add sprite folders with creature.json manifests")
+        }
+    }
+
+    private func startScheduler() {
+        let settings = Settings.load()
+        scheduler.updateSettings(settings)
+        isEnabled = settings.enabled
+
+        scheduler.setTriggerHandler { [weak self] creature, behaviorType in
+            self?.showCreature(creature, behavior: behaviorType)
+        }
+
+        scheduler.start()
+    }
+
+    private func showCreature(_ creature: Creature, behavior behaviorType: BehaviorType) {
+        guard isEnabled else { return }
+
+        // Close any existing window
+        creatureWindow?.close()
+
+        // Create and show new creature window
+        let window = CreatureWindow()
+        window.show(creature: creature, behavior: behaviorType, spriteLoader: spriteLoader) { [weak self] in
+            self?.creatureWindow = nil
+        }
+        creatureWindow = window
+    }
+}

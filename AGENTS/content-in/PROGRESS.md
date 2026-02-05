@@ -99,17 +99,30 @@
 - **AppDelegate/CreatureWindow**: Wired up AccessibilityWindowTracker
 - **13 unit tests** for ClimberBehavior, MockWindowTracker, ScreenRect edges, window movement (78 total)
 
+#### Phase 7: Cursor Interaction ✅
+- **CursorTracker protocol**: Interface for system-wide cursor tracking
+- **GlobalCursorTracker**: Real implementation using NSEvent.addGlobalMonitorForEvents
+  - Tracks cursor position across all apps and spaces
+  - Calculates cursor velocity with exponential smoothing
+  - Uses both global and local event monitors
+- **MockCursorTracker**: Test implementation for unit tests
+- **FollowBehavior**: Creature follows cursor at a safe distance
+  - Maintains personality-based follow distance (shy=200px, chaotic=60px)
+  - Moves toward cursor position smoothly
+  - Flees if cursor gets too close (personality-based threshold)
+  - Switches between idle and walk animations based on movement
+  - Duration-based, ends after set time
+- **CreatureViewModel**: Updated to accept optional CursorTracker dependency
+- **AppDelegate/CreatureWindow**: Wired up GlobalCursorTracker
+- **9 new unit tests** for FollowBehavior, MockCursorTracker (87 total)
+
 ### Current State
 - Build: ✅ Compiles cleanly
-- Tests: ✅ 78 tests passing
-- CLI: ✅ Works (`swift run pocketgris behaviors list` shows all 4 behaviors)
-- GUI: ✅ Runs, supports peek, traverse, stationary, climber (with window tracking)
+- Tests: ✅ 87 tests passing
+- CLI: ✅ Works (`swift run pocketgris behaviors list` shows all 5 behaviors)
+- GUI: ✅ Runs, supports peek, traverse, stationary, climber, cursorReactive
 
 ### Remaining Phases
-
-#### Phase 7: Cursor Interaction
-- Global NSEvent monitor
-- CursorReactiveBehavior (flee, follow, hide)
 
 #### Phase 8: Polish
 - Settings UI
@@ -122,28 +135,31 @@
 ## Continuation Prompt
 
 ```
-Continue implementing pocket-gris from Phase 7.
+Continue implementing pocket-gris from Phase 8.
 
 Current state:
-- Phases 0-6 complete (foundation, peek, GUI shell, animation polish, traverse/stationary, window tracking)
-- 78 unit tests passing
-- 4 behaviors: peek, traverse, stationary, climber
+- Phases 0-7 complete (foundation through cursor interaction)
+- 87 unit tests passing
+- 5 behaviors: peek, traverse, stationary, climber, cursorReactive (follow)
 - Test creature "gris" with 12 animations (peek, retreat, idle, walk, climb)
-- Menu bar app with AccessibilityWindowTracker for window-aware behaviors
-- Climber behavior tracks window movement (creature follows dragged windows)
+- Global cursor tracking via GlobalCursorTracker with NSEvent monitors
+- Window tracking via AccessibilityWindowTracker
 
 Next steps:
-1. Phase 7: Cursor Interaction - Global NSEvent monitor, CursorReactiveBehavior
-2. Phase 8: Polish - Settings UI, launch at login, multi-monitor
+Phase 8: Polish
+- Settings UI (SwiftUI window for configuring intervals, enabled creatures)
+- Launch at login (SMLoginItemSetEnabled or LaunchAtLogin package)
+- Multi-monitor support (use NSScreen.screens, track which screen creature is on)
+- Performance optimization (reduce update frequency when idle)
 
 Key files:
 - Sources/PocketGrisCore/Behavior/ - All behavior implementations
-- Sources/PocketGrisCore/Services/WindowTracker.swift - Window tracking
-- Sources/PocketGrisApp/CreatureViewModel.swift - View model with window tracking
+- Sources/PocketGrisCore/Services/ - CursorTracker, WindowTracker
+- Sources/PocketGrisApp/ - App delegate, view model, creature window
 - Tests/PocketGrisCoreTests/BehaviorTests.swift - All behavior tests
 
 To test: swift build && swift test
 To list behaviors: swift run pocketgris behaviors list
-To trigger specific behavior: swift run pocketgris trigger --behavior climber --gui
+To trigger specific behavior: swift run pocketgris trigger --behavior cursorReactive --gui
 To run app: swift run PocketGrisApp
 ```

@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let scheduler = BehaviorScheduler()
     private let ipcService = IPCService()
     private let windowTracker = AccessibilityWindowTracker()
+    private let cursorTracker = GlobalCursorTracker()
     private var isEnabled = true
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -184,7 +185,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             creature: creature,
             behavior: behaviorType,
             spriteLoader: spriteLoader,
-            windowTracker: windowTracker
+            windowTracker: windowTracker,
+            cursorTracker: cursorTracker
         ) { [weak self] in
             self?.creatureWindow = nil
         }

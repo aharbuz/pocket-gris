@@ -653,7 +653,222 @@ final class BehaviorTests: XCTestCase {
         XCTAssertNil(rect.isNearEdge(center, threshold: 30))
     }
 
+    // MARK: - Follow Behavior Tests
+
+    func testFollowBehaviorStart() {
+        let behavior = FollowBehavior()
+        let creature = makeFollowCreature()
+        let context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            cursorPosition: Position(x: 500, y: 500)
+        )
+        // Random: double for angle, double for duration
+        let random = FixedRandomSource(ints: [], doubles: [0.0, 0.0])
+
+        let state = behavior.start(context: context, random: random)
+
+        XCTAssertEqual(state.phase, .enter)
+        XCTAssertNotNil(state.animation)
+        XCTAssertNotNil(state.metadata["followDistance"])
+        XCTAssertNotNil(state.metadata["followDuration"])
+    }
+
+    func testFollowBehaviorPhaseTransitions() {
+        let behavior = FollowBehavior()
+        let creature = makeFollowCreature()
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            cursorPosition: Position(x: 500, y: 500)
+        )
+        let random = FixedRandomSource(ints: [], doubles: [0.0, 0.0])
+
+        var state = behavior.start(context: context, random: random)
+        XCTAssertEqual(state.phase, .enter)
+
+        // Move past enter phase (0.3s)
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.4,
+            cursorPosition: Position(x: 500, y: 500)
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 0.4)
+
+        XCTAssertEqual(state.phase, .perform)
+        XCTAssertTrue(events.contains(.phaseChanged(.perform)))
+    }
+
+    func testFollowBehaviorCancel() {
+        let behavior = FollowBehavior()
+        let creature = makeFollowCreature()
+        let context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            cursorPosition: Position(x: 500, y: 500)
+        )
+        let random = FixedRandomSource(ints: [], doubles: [0.0, 0.0])
+
+        var state = behavior.start(context: context, random: random)
+        let events = behavior.cancel(state: &state)
+
+        XCTAssertEqual(state.phase, .complete)
+        XCTAssertTrue(events.contains(.cancelled))
+    }
+
+    func testFollowBehaviorMovesTowardCursor() {
+        let behavior = FollowBehavior()
+        let creature = makeFollowCreature()  // curious personality
+        let bounds = ScreenRect(x: 0, y: 0, width: 1920, height: 1080)
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 0,
+            cursorPosition: Position(x: 500, y: 500)
+        )
+        // Start angle 0 puts creature to the right of cursor at follow distance
+        let random = FixedRandomSource(ints: [], doubles: [0.0, 0.5])
+
+        var state = behavior.start(context: context, random: random)
+
+        // Move to perform phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 0.4,
+            cursorPosition: Position(x: 500, y: 500)
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.4)
+        XCTAssertEqual(state.phase, .perform)
+
+        let initialPosition = state.position
+
+        // Move cursor away and simulate time passing
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 1.5,
+            cursorPosition: Position(x: 800, y: 800)  // Cursor moved far away
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 1.1)
+
+        // Creature should have moved toward the new cursor position
+        let finalPosition = state.position
+        let distanceToNewCursor = finalPosition.distance(to: Position(x: 800, y: 800))
+        let distanceFromInitial = initialPosition.distance(to: Position(x: 800, y: 800))
+
+        // Should be closer to cursor than before (or at follow distance)
+        XCTAssertLessThanOrEqual(distanceToNewCursor, distanceFromInitial)
+    }
+
+    func testFollowBehaviorFleeWhenCursorTooClose() {
+        let behavior = FollowBehavior()
+        // Shy personality: followFleeDistance = 100
+        let creature = Creature(
+            id: "shy-follow",
+            name: "Shy Follower",
+            personality: .shy,
+            animations: [
+                "idle": Animation(name: "idle", frameCount: 8, fps: 6),
+                "walk-left": Animation(name: "walk-left", frameCount: 8, fps: 10)
+            ]
+        )
+        let bounds = ScreenRect(x: 0, y: 0, width: 1920, height: 1080)
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 0,
+            cursorPosition: Position(x: 500, y: 500)
+        )
+        let random = FixedRandomSource(ints: [], doubles: [0.0, 0.5])
+
+        var state = behavior.start(context: context, random: random)
+
+        // Move to perform phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 0.4,
+            cursorPosition: Position(x: 500, y: 500)
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.4)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Move cursor very close to creature (within flee distance of 100)
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 0.5,
+            cursorPosition: Position(x: state.position.x + 30, y: state.position.y)
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 0.1)
+
+        // Should flee to exit
+        XCTAssertEqual(state.phase, .exit)
+        XCTAssertTrue(events.contains(.phaseChanged(.exit)))
+    }
+
+    func testBehaviorRegistryIncludesFollow() {
+        let registry = BehaviorRegistry.shared
+        let follow = registry.behavior(for: .cursorReactive)
+        XCTAssertNotNil(follow)
+        XCTAssertEqual(follow?.type, .cursorReactive)
+    }
+
+    // MARK: - Mock Cursor Tracker Tests
+
+    func testMockCursorTrackerReturnsConfiguredPosition() {
+        let position = Position(x: 500, y: 600)
+        let tracker = MockCursorTracker(position: position)
+
+        let result = tracker.getCurrentPosition()
+
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.x, 500)
+        XCTAssertEqual(result?.y, 600)
+    }
+
+    func testMockCursorTrackerCanUpdatePosition() {
+        let tracker = MockCursorTracker(position: nil)
+        XCTAssertNil(tracker.getCurrentPosition())
+
+        tracker.moveTo(Position(x: 100, y: 200))
+        let result = tracker.getCurrentPosition()
+
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.x, 100)
+        XCTAssertEqual(result?.y, 200)
+    }
+
+    func testMockCursorTrackerReturnsVelocity() {
+        let velocity = Position(x: 150, y: -50)
+        let tracker = MockCursorTracker(position: Position(x: 0, y: 0), velocity: velocity)
+
+        let result = tracker.getCursorVelocity()
+
+        XCTAssertNotNil(result)
+        XCTAssertEqual(result?.x, 150)
+        XCTAssertEqual(result?.y, -50)
+    }
+
     // MARK: - Helpers
+
+    private func makeFollowCreature() -> Creature {
+        Creature(
+            id: "follow-test",
+            name: "Follow Test",
+            personality: .curious,
+            animations: [
+                "idle": Animation(name: "idle", frameCount: 8, fps: 6),
+                "walk-left": Animation(name: "walk-left", frameCount: 8, fps: 10),
+                "walk-right": Animation(name: "walk-right", frameCount: 8, fps: 10)
+            ]
+        )
+    }
 
     private func makeTraverseCreature() -> Creature {
         Creature(

@@ -24,6 +24,7 @@ final class CreatureViewModel: ObservableObject {
     private let random: RandomSource
     private var timeSource: TimeSource
     private let windowTracker: WindowTracker?
+    private let cursorTracker: CursorTracker?
 
     // Animation state for sliding
     private var slideStartPosition: Position = .zero
@@ -44,7 +45,8 @@ final class CreatureViewModel: ObservableObject {
         spriteLoader: SpriteLoader,
         timeSource: TimeSource = SystemTimeSource(),
         random: RandomSource = SystemRandomSource(),
-        windowTracker: WindowTracker? = nil
+        windowTracker: WindowTracker? = nil,
+        cursorTracker: CursorTracker? = nil
     ) {
         self.creature = creature
         self.behavior = BehaviorRegistry.shared.behavior(for: behaviorType) ?? PeekBehavior()
@@ -53,6 +55,7 @@ final class CreatureViewModel: ObservableObject {
         self.timeSource = timeSource
         self.random = random
         self.windowTracker = windowTracker
+        self.cursorTracker = cursorTracker
 
         // Initialize state
         let windowFrames = windowTracker?.getWindowFrames() ?? []
@@ -270,6 +273,12 @@ final class CreatureViewModel: ObservableObject {
     // MARK: - Input
 
     private func getCurrentCursorPosition() -> Position? {
+        // Use injected cursor tracker if available (for global tracking)
+        if let tracker = cursorTracker {
+            return tracker.getCurrentPosition()
+        }
+
+        // Fallback to direct NSEvent (works within our window)
         let mouseLocation = NSEvent.mouseLocation
         // Convert from bottom-left to top-left coordinate system
         guard let screen = NSScreen.main else { return nil }

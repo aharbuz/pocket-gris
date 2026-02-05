@@ -78,18 +78,31 @@
   - Flip direction based on movement direction (not just edge)
 - **10 new unit tests** for TraverseBehavior and StationaryBehavior (65 total)
 
+#### Phase 6: Window Tracking (In Progress)
+- **WindowTracker protocol**: Interface for getting window frames
+- **MockWindowTracker**: Test implementation for unit tests
+- **ClimberBehavior**: Climb along window edges
+  - Attaches to random window edge (top, left, right, bottom)
+  - Climbs in random direction along the edge
+  - Cursor proximity triggers flee
+  - Falls back gracefully when no windows available
+- **ScreenRect extensions**: randomPositionOnEdge, cornerPosition, isNearEdge
+- **Climb animation**: Added to gris creature (8 frames, 10fps)
+- **CreatureViewModel**: Now accepts optional WindowTracker, passes windowFrames to context
+- **Unit tests**: ClimberBehavior tests, MockWindowTracker tests, ScreenRect edge tests
+
 ### Current State
 - Build: ✅ Compiles cleanly
-- Tests: ✅ 65 tests passing
-- CLI: ✅ Works (`swift run pocketgris behaviors list` shows traverse, stationary, peek)
-- GUI: ✅ Runs, supports all three behavior types
+- Tests: ✅ ~75 tests passing (Phase 6 tests added)
+- CLI: ✅ Works (`swift run pocketgris behaviors list` shows all 4 behaviors)
+- GUI: ✅ Runs, supports peek, traverse, stationary, climber
 
-### Remaining Phases
+### Remaining Work
 
-#### Phase 6: Window Tracking
-- AccessibilityWindowTracker
-- ClimberBehavior
-- Attach creatures to moving windows
+#### Phase 6: Window Tracking (TODO)
+- [ ] AccessibilityWindowTracker (real implementation using Accessibility API)
+- [ ] Wire up WindowTracker in AppDelegate/CreatureWindow
+- [ ] Test with actual windows
 
 #### Phase 7: Cursor Interaction
 - Global NSEvent monitor
@@ -106,27 +119,27 @@
 ## Continuation Prompt
 
 ```
-Continue implementing pocket-gris from Phase 6.
+Continue implementing pocket-gris - finish Phase 6 Window Tracking.
 
 Current state:
-- Phases 0-5 complete (foundation, peek, GUI shell, animation polish, traverse/stationary)
-- 65 unit tests passing
-- 3 behaviors: peek, traverse, stationary
-- Test creature "gris" with 11 animations (peek, retreat, idle, walk)
-- Menu bar app with smooth position following for traverse behavior
+- Phases 0-5 complete, Phase 6 partially done
+- ~75 unit tests passing
+- 4 behaviors: peek, traverse, stationary, climber
+- ClimberBehavior implemented with MockWindowTracker for tests
+- WindowTracker protocol defined, CreatureViewModel accepts it
 
-Next steps:
-1. Phase 6: Window Tracking - AccessibilityWindowTracker, ClimberBehavior
-2. Attach creatures to moving windows
-3. Continue through remaining phases
+Remaining Phase 6 work:
+1. Implement AccessibilityWindowTracker using macOS Accessibility API
+2. Wire up real WindowTracker in AppDelegate when creating CreatureWindow
+3. Test climber behavior with actual application windows
+4. Handle window movement (creature should follow its attached window)
 
 Key files:
-- Sources/PocketGrisCore/Behavior/ - Behaviors (PeekBehavior, TraverseBehavior, StationaryBehavior)
-- Sources/PocketGrisApp/CreatureViewModel.swift - View model with position following
-- Tests/PocketGrisCoreTests/BehaviorTests.swift - Behavior unit tests
+- Sources/PocketGrisCore/Behavior/ClimberBehavior.swift - Window climbing behavior
+- Sources/PocketGrisCore/Services/WindowTracker.swift - Protocol + MockWindowTracker
+- Sources/PocketGrisApp/CreatureViewModel.swift - Accepts WindowTracker
+- Tests/PocketGrisCoreTests/BehaviorTests.swift - Climber tests
 
 To test: swift build && swift test
-To list behaviors: swift run pocketgris behaviors list
-To trigger specific behavior: swift run pocketgris trigger --behavior traverse --gui
-To run app: swift run PocketGrisApp
+To trigger climber: swift run pocketgris trigger --behavior climber --gui
 ```

@@ -56,6 +56,18 @@
       "frameCount": 8,
       "fps": 6,
       "looping": true
+    },
+    {
+      "name": "walk-left",
+      "frameCount": 8,
+      "fps": 10,
+      "looping": true
+    },
+    {
+      "name": "walk-right",
+      "frameCount": 8,
+      "fps": 10,
+      "looping": true
     }
   ]
 }

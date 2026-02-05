@@ -34,6 +34,8 @@ public final class BehaviorRegistry: @unchecked Sendable {
     private init() {
         // Register default behaviors
         register(PeekBehavior())
+        register(TraverseBehavior())
+        register(StationaryBehavior())
     }
 
     public func register(_ behavior: any Behavior) {

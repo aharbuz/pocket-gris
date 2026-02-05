@@ -117,4 +117,269 @@ final class BehaviorTests: XCTestCase {
 
         XCTAssertTrue(available.isEmpty)
     }
+
+    // MARK: - Traverse Behavior Tests
+
+    func testTraverseBehaviorStart() {
+        let behavior = TraverseBehavior()
+        let creature = makeTraverseCreature()
+        let context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0
+        )
+        // Random: bool=true (start left), double for Y position
+        let random = FixedRandomSource(ints: [], doubles: [0.5], bools: [true])
+
+        let state = behavior.start(context: context, random: random)
+
+        XCTAssertEqual(state.phase, .enter)
+        XCTAssertNotNil(state.edge)
+        XCTAssertNotNil(state.animation)
+        XCTAssertNotNil(state.metadata["startX"])
+        XCTAssertNotNil(state.metadata["endX"])
+    }
+
+    func testTraverseBehaviorPhaseTransitions() {
+        let behavior = TraverseBehavior()
+        let creature = makeTraverseCreature()
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0
+        )
+        let random = FixedRandomSource(ints: [], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+        XCTAssertEqual(state.phase, .enter)
+
+        // Move past enter phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.2
+        )
+        var events = behavior.update(state: &state, context: context, deltaTime: 0.2)
+
+        XCTAssertEqual(state.phase, .perform)
+        XCTAssertTrue(events.contains(.phaseChanged(.perform)))
+    }
+
+    func testTraverseBehaviorCancel() {
+        let behavior = TraverseBehavior()
+        let creature = makeTraverseCreature()
+        let context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0
+        )
+        let random = FixedRandomSource(ints: [], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+        let events = behavior.cancel(state: &state)
+
+        XCTAssertEqual(state.phase, .complete)
+        XCTAssertTrue(events.contains(.cancelled))
+    }
+
+    func testTraverseBehaviorMovement() {
+        let behavior = TraverseBehavior()
+        let creature = makeTraverseCreature()
+        let bounds = ScreenRect(x: 0, y: 0, width: 1920, height: 1080)
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 0
+        )
+        // Start from left edge
+        let random = FixedRandomSource(ints: [], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+        let initialPosition = state.position
+
+        // Move to perform phase
+        context = BehaviorContext(creature: creature, screenBounds: bounds, currentTime: 0.2)
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.2)
+
+        // Simulate movement over time
+        context = BehaviorContext(creature: creature, screenBounds: bounds, currentTime: 1.2)
+        let events = behavior.update(state: &state, context: context, deltaTime: 1.0)
+
+        // Should have moved from initial position
+        XCTAssertNotEqual(state.position, initialPosition)
+        XCTAssertTrue(events.contains(where: {
+            if case .positionChanged = $0 { return true }
+            return false
+        }))
+    }
+
+    // MARK: - Stationary Behavior Tests
+
+    func testStationaryBehaviorStart() {
+        let behavior = StationaryBehavior()
+        let creature = makeStationaryCreature()
+        let context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0
+        )
+        // Random: int for edge (0=left), double for position, double for duration
+        let random = FixedRandomSource(ints: [0], doubles: [0.5, 0.0])
+
+        let state = behavior.start(context: context, random: random)
+
+        XCTAssertEqual(state.phase, .enter)
+        XCTAssertNotNil(state.edge)
+        XCTAssertNotNil(state.animation)
+        XCTAssertEqual(state.edge, .left)
+    }
+
+    func testStationaryBehaviorPhaseTransitions() {
+        let behavior = StationaryBehavior()
+        let creature = makeStationaryCreature()
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0
+        )
+        let random = FixedRandomSource(ints: [0], doubles: [0.5, 0.0])  // 0.0 = min duration (4.0s for curious)
+
+        var state = behavior.start(context: context, random: random)
+        XCTAssertEqual(state.phase, .enter)
+
+        // Move past enter phase (0.5s)
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.6
+        )
+        var events = behavior.update(state: &state, context: context, deltaTime: 0.6)
+
+        XCTAssertEqual(state.phase, .perform)
+        XCTAssertTrue(events.contains(.phaseChanged(.perform)))
+
+        // Wait for stationary duration (min 4.0s for curious)
+        // startTime was reset to 0.6 when entering perform, need elapsed >= 4.0
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 5.0
+        )
+        events = behavior.update(state: &state, context: context, deltaTime: 4.4)
+
+        XCTAssertEqual(state.phase, .exit)
+        XCTAssertTrue(events.contains(.phaseChanged(.exit)))
+
+        // Complete exit (0.6s)
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 5.7
+        )
+        events = behavior.update(state: &state, context: context, deltaTime: 0.7)
+
+        XCTAssertEqual(state.phase, .complete)
+        XCTAssertTrue(events.contains(.completed))
+    }
+
+    func testStationaryBehaviorCancel() {
+        let behavior = StationaryBehavior()
+        let creature = makeStationaryCreature()
+        let context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0
+        )
+        let random = FixedRandomSource(ints: [0], doubles: [0.5, 0.5])
+
+        var state = behavior.start(context: context, random: random)
+        let events = behavior.cancel(state: &state)
+
+        XCTAssertEqual(state.phase, .complete)
+        XCTAssertTrue(events.contains(.cancelled))
+    }
+
+    func testStationaryBehaviorCursorFlee() {
+        let behavior = StationaryBehavior()
+        // Use curious personality - cursorSensitivity 0.3
+        // fleeThreshold = 100 * (1 - 0.3) = 70 pixels
+        let creature = Creature(
+            id: "cursor-test",
+            name: "Cursor Test",
+            personality: .curious,
+            animations: ["idle": Animation(name: "idle", frameCount: 8, fps: 6)]
+        )
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0
+        )
+        let random = FixedRandomSource(ints: [0], doubles: [0.5, 0.0])
+
+        var state = behavior.start(context: context, random: random)
+
+        // Move to perform phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.6
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.6)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Cursor approaches within flee threshold (< 70 pixels for curious)
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.7,
+            cursorPosition: Position(x: state.position.x + 30, y: state.position.y)
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 0.1)
+
+        // Should flee to exit
+        XCTAssertEqual(state.phase, .exit)
+        XCTAssertTrue(events.contains(.phaseChanged(.exit)))
+    }
+
+    // MARK: - Registry Tests for New Behaviors
+
+    func testBehaviorRegistryIncludesTraverse() {
+        let registry = BehaviorRegistry.shared
+        let traverse = registry.behavior(for: .traverse)
+        XCTAssertNotNil(traverse)
+        XCTAssertEqual(traverse?.type, .traverse)
+    }
+
+    func testBehaviorRegistryIncludesStationary() {
+        let registry = BehaviorRegistry.shared
+        let stationary = registry.behavior(for: .stationary)
+        XCTAssertNotNil(stationary)
+        XCTAssertEqual(stationary?.type, .stationary)
+    }
+
+    // MARK: - Helpers
+
+    private func makeTraverseCreature() -> Creature {
+        Creature(
+            id: "traverse-test",
+            name: "Traverse Test",
+            personality: .curious,
+            animations: [
+                "walk-left": Animation(name: "walk-left", frameCount: 8, fps: 10),
+                "walk-right": Animation(name: "walk-right", frameCount: 8, fps: 10),
+                "idle": Animation(name: "idle", frameCount: 8, fps: 6)
+            ]
+        )
+    }
+
+    private func makeStationaryCreature() -> Creature {
+        Creature(
+            id: "stationary-test",
+            name: "Stationary Test",
+            personality: .curious,
+            animations: [
+                "idle": Animation(name: "idle", frameCount: 8, fps: 6)
+            ]
+        )
+    }
 }

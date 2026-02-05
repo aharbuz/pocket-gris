@@ -58,18 +58,33 @@
 - **Fixed main.swift**: NSApplication initialization order
 - **5 new unit tests** for SpriteLoader (55 total)
 
+#### Phase 5: Traversal & Stationary Behaviors ✅
+- **TraverseBehavior**: Walk across screen from one edge to the opposite
+  - Horizontal traversal (left→right or right→left)
+  - Position updates emitted during perform phase
+  - Speed based on personality (shy=80, curious=120, mischievous=150, chaotic=180 px/s)
+  - Cursor proximity causes speed boost
+  - Uses walk-left/walk-right animations (falls back to idle)
+- **StationaryBehavior**: Appear at edge, do antics, disappear
+  - Appears at random edge (left, right, or bottom)
+  - Plays idle animation during perform phase
+  - Duration based on personality (shy=2-4s, curious=4-8s, etc.)
+  - Cursor proximity triggers early flee
+- **Walk animations**: Added walk-left/walk-right to gris creature
+  - 8 frames at 10 fps, looping
+  - Generated via updated Python sprite generator
+- **CreatureViewModel enhancements**:
+  - Smooth position following during perform phase
+  - Flip direction based on movement direction (not just edge)
+- **10 new unit tests** for TraverseBehavior and StationaryBehavior (65 total)
+
 ### Current State
 - Build: ✅ Compiles cleanly
-- Tests: ✅ 55 tests passing
-- CLI: ✅ Works (`swift run pocketgris creatures list` shows gris)
-- GUI: ✅ Runs, loads creatures, responds to triggers
+- Tests: ✅ 65 tests passing
+- CLI: ✅ Works (`swift run pocketgris behaviors list` shows traverse, stationary, peek)
+- GUI: ✅ Runs, supports all three behavior types
 
 ### Remaining Phases
-
-#### Phase 5: Traversal & Stationary Behaviors
-- TraverseBehavior (walk across screen)
-- StationaryBehavior (appear, do antics, disappear)
-- Path animation system (waypoints, bezier curves)
 
 #### Phase 6: Window Tracking
 - AccessibilityWindowTracker
@@ -91,29 +106,27 @@
 ## Continuation Prompt
 
 ```
-Continue implementing pocket-gris from Phase 5.
+Continue implementing pocket-gris from Phase 6.
 
 Current state:
-- Phases 0-4 complete (foundation, peek behavior, GUI shell, animation polish)
-- 55 unit tests passing
-- Test creature "gris" with PNG animations
-- Menu bar app with sliding entrance/exit animations
-- ImageCache for efficient sprite rendering
+- Phases 0-5 complete (foundation, peek, GUI shell, animation polish, traverse/stationary)
+- 65 unit tests passing
+- 3 behaviors: peek, traverse, stationary
+- Test creature "gris" with 11 animations (peek, retreat, idle, walk)
+- Menu bar app with smooth position following for traverse behavior
 
 Next steps:
-1. Phase 5: Add TraverseBehavior (walk across screen) and StationaryBehavior
-2. Path animation system for smooth movement
+1. Phase 6: Window Tracking - AccessibilityWindowTracker, ClimberBehavior
+2. Attach creatures to moving windows
 3. Continue through remaining phases
 
 Key files:
-- Sources/PocketGrisCore/ - Pure Swift library
-- Sources/PocketGrisCLI/CLI.swift - Command line interface
-- Sources/PocketGrisApp/ - Menu bar app (AppDelegate, CreatureWindow, CreatureViewModel, SpriteView, ImageCache)
-- Tests/PocketGrisCoreTests/ - Unit tests
-- Resources/Sprites/gris/ - Test creature with animations
-- scripts/generate_sprites.py - Sprite generation script
+- Sources/PocketGrisCore/Behavior/ - Behaviors (PeekBehavior, TraverseBehavior, StationaryBehavior)
+- Sources/PocketGrisApp/CreatureViewModel.swift - View model with position following
+- Tests/PocketGrisCoreTests/BehaviorTests.swift - Behavior unit tests
 
-To test: swift build && swift test && swift run pocketgris creatures list
-To run: swift run PocketGrisApp (check menu bar for pawprint icon)
-To trigger: swift run pocketgris trigger --gui
+To test: swift build && swift test
+To list behaviors: swift run pocketgris behaviors list
+To trigger specific behavior: swift run pocketgris trigger --behavior traverse --gui
+To run app: swift run PocketGrisApp
 ```

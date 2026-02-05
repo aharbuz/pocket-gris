@@ -222,6 +222,20 @@ def main():
         eye_x = int(2 * math.sin(phase))
         return (eye_x, 0, 3)
 
+    # Walk left: eyes look forward-left, slight bounce in mouth
+    def walk_left_modifier(i, total):
+        import math
+        phase = (i / total) * 2 * math.pi
+        bounce = int(2 * abs(math.sin(phase * 2)))  # Bouncy walk
+        return (-1, bounce - 1, 3)  # Looking left while walking
+
+    # Walk right: eyes look forward-right, slight bounce
+    def walk_right_modifier(i, total):
+        import math
+        phase = (i / total) * 2 * math.pi
+        bounce = int(2 * abs(math.sin(phase * 2)))
+        return (1, bounce - 1, 3)  # Looking right while walking
+
     # Generate all animations
     generate_animation_frames(base_path, "peek-left", 10, width, height, base_color, peek_left_modifier)
     generate_animation_frames(base_path, "peek-right", 10, width, height, base_color, peek_right_modifier)
@@ -232,6 +246,8 @@ def main():
     generate_animation_frames(base_path, "retreat-top", 8, width, height, base_color, retreat_modifier)
     generate_animation_frames(base_path, "retreat-bottom", 8, width, height, base_color, retreat_modifier)
     generate_animation_frames(base_path, "idle", 8, width, height, base_color, idle_modifier)
+    generate_animation_frames(base_path, "walk-left", 8, width, height, base_color, walk_left_modifier)
+    generate_animation_frames(base_path, "walk-right", 8, width, height, base_color, walk_right_modifier)
 
     # Create creature manifest
     manifest = {
@@ -247,7 +263,9 @@ def main():
             {"name": "retreat-right", "frameCount": 8, "fps": 12, "looping": False},
             {"name": "retreat-top", "frameCount": 8, "fps": 12, "looping": False},
             {"name": "retreat-bottom", "frameCount": 8, "fps": 12, "looping": False},
-            {"name": "idle", "frameCount": 8, "fps": 6, "looping": True}
+            {"name": "idle", "frameCount": 8, "fps": 6, "looping": True},
+            {"name": "walk-left", "frameCount": 8, "fps": 10, "looping": True},
+            {"name": "walk-right", "frameCount": 8, "fps": 10, "looping": True}
         ]
     }
 

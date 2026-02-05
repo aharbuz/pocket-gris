@@ -106,6 +106,12 @@ final class CreatureViewModel: ObservableObject {
         // Update target position from behavior
         let newPosition = state.position
         if newPosition != position {
+            // Update flip direction based on movement
+            if newPosition.x > position.x {
+                flipHorizontal = false  // Moving right, face right
+            } else if newPosition.x < position.x {
+                flipHorizontal = true   // Moving left, face left
+            }
             position = newPosition
         }
 
@@ -174,6 +180,25 @@ final class CreatureViewModel: ObservableObject {
     }
 
     private func updateSlide(deltaTime: TimeInterval) {
+        // If in perform phase and behavior updates position continuously, follow it
+        if state.phase == .perform && slideProgress >= 1.0 {
+            // Smoothly follow the behavior's position
+            let followSpeed = 8.0  // How fast to catch up
+            let dx = position.x - displayPosition.x
+            let dy = position.y - displayPosition.y
+
+            // Only interpolate if there's a significant difference
+            if abs(dx) > 0.5 || abs(dy) > 0.5 {
+                displayPosition = Position(
+                    x: displayPosition.x + dx * min(followSpeed * deltaTime, 1.0),
+                    y: displayPosition.y + dy * min(followSpeed * deltaTime, 1.0)
+                )
+            } else {
+                displayPosition = position
+            }
+            return
+        }
+
         guard slideProgress < 1.0 else {
             displayPosition = slideTargetPosition
             return

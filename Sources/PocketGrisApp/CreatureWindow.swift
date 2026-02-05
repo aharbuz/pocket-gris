@@ -10,9 +10,9 @@ final class CreatureWindow: NSWindow {
     private var lastFrameTime: CFTimeInterval = 0
     private var onComplete: (() -> Void)?
 
-    init() {
-        // Full screen bounds
-        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
+    init(screen: NSScreen? = nil) {
+        let targetScreen = screen ?? NSScreen.main
+        let screenFrame = targetScreen?.frame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
 
         super.init(
             contentRect: screenFrame,

@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let windowTracker = AccessibilityWindowTracker()
     private let cursorTracker = GlobalCursorTracker()
     private var isEnabled = true
+    private let settingsWindowController = SettingsWindowController()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -67,8 +68,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openSettings() {
-        // TODO: Settings window
-        print("Settings not yet implemented")
+        let creatures = spriteLoader.allCreatures()
+        settingsWindowController.show(
+            creatures: creatures,
+            onTestBehavior: { [weak self] creature, behavior in
+                if let creature = creature {
+                    let behaviorType = behavior ?? .peek
+                    self?.showCreature(creature, behavior: behaviorType)
+                } else {
+                    self?.scheduler.triggerNow()
+                }
+            },
+            onSettingsChanged: { [weak self] settings in
+                self?.scheduler.updateSettings(settings)
+            }
+        )
     }
 
     @objc private func quit() {
@@ -179,8 +193,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Close any existing window
         creatureWindow?.close()
 
+        // Pick a random screen for multi-monitor support
+        let screens = NSScreen.screens
+        let targetScreen = screens.isEmpty ? nil : screens[Int.random(in: 0..<screens.count)]
+
         // Create and show new creature window
-        let window = CreatureWindow()
+        let window = CreatureWindow(screen: targetScreen)
         window.show(
             creature: creature,
             behavior: behaviorType,

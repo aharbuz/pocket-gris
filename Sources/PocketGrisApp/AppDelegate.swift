@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let spriteLoader = SpriteLoader()
     private let scheduler = BehaviorScheduler()
     private let ipcService = IPCService()
+    private let windowTracker = AccessibilityWindowTracker()
     private var isEnabled = true
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -179,7 +180,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Create and show new creature window
         let window = CreatureWindow()
-        window.show(creature: creature, behavior: behaviorType, spriteLoader: spriteLoader) { [weak self] in
+        window.show(
+            creature: creature,
+            behavior: behaviorType,
+            spriteLoader: spriteLoader,
+            windowTracker: windowTracker
+        ) { [weak self] in
             self?.creatureWindow = nil
         }
         creatureWindow = window

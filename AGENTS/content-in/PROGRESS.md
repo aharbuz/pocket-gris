@@ -78,31 +78,32 @@
   - Flip direction based on movement direction (not just edge)
 - **10 new unit tests** for TraverseBehavior and StationaryBehavior (65 total)
 
-#### Phase 6: Window Tracking (In Progress)
+#### Phase 6: Window Tracking ✅
 - **WindowTracker protocol**: Interface for getting window frames
+- **AccessibilityWindowTracker**: Real implementation using CGWindowListCopyWindowInfo
+  - Excludes own app, Dock, Control Center, Notification Center
+  - Filters out tiny windows and desktop elements
+  - Returns ScreenRect frames for all visible windows
 - **MockWindowTracker**: Test implementation for unit tests
 - **ClimberBehavior**: Climb along window edges
   - Attaches to random window edge (top, left, right, bottom)
   - Climbs in random direction along the edge
+  - Speed based on personality (shy=40, curious=70, mischievous=100, chaotic=130 px/s)
   - Cursor proximity triggers flee
   - Falls back gracefully when no windows available
 - **ScreenRect extensions**: randomPositionOnEdge, cornerPosition, isNearEdge
 - **Climb animation**: Added to gris creature (8 frames, 10fps)
 - **CreatureViewModel**: Now accepts optional WindowTracker, passes windowFrames to context
-- **Unit tests**: ClimberBehavior tests, MockWindowTracker tests, ScreenRect edge tests
+- **AppDelegate/CreatureWindow**: Wired up AccessibilityWindowTracker
+- **11 new unit tests** for ClimberBehavior, MockWindowTracker, ScreenRect edges (76 total)
 
 ### Current State
 - Build: ✅ Compiles cleanly
-- Tests: ✅ ~75 tests passing (Phase 6 tests added)
+- Tests: ✅ 76 tests passing
 - CLI: ✅ Works (`swift run pocketgris behaviors list` shows all 4 behaviors)
 - GUI: ✅ Runs, supports peek, traverse, stationary, climber
 
-### Remaining Work
-
-#### Phase 6: Window Tracking (TODO)
-- [ ] AccessibilityWindowTracker (real implementation using Accessibility API)
-- [ ] Wire up WindowTracker in AppDelegate/CreatureWindow
-- [ ] Test with actual windows
+### Remaining Phases
 
 #### Phase 7: Cursor Interaction
 - Global NSEvent monitor
@@ -119,27 +120,27 @@
 ## Continuation Prompt
 
 ```
-Continue implementing pocket-gris - finish Phase 6 Window Tracking.
+Continue implementing pocket-gris from Phase 7.
 
 Current state:
-- Phases 0-5 complete, Phase 6 partially done
-- ~75 unit tests passing
+- Phases 0-6 complete (foundation, peek, GUI shell, animation polish, traverse/stationary, window tracking)
+- 76 unit tests passing
 - 4 behaviors: peek, traverse, stationary, climber
-- ClimberBehavior implemented with MockWindowTracker for tests
-- WindowTracker protocol defined, CreatureViewModel accepts it
+- Test creature "gris" with 12 animations (peek, retreat, idle, walk, climb)
+- Menu bar app with AccessibilityWindowTracker for window-aware behaviors
 
-Remaining Phase 6 work:
-1. Implement AccessibilityWindowTracker using macOS Accessibility API
-2. Wire up real WindowTracker in AppDelegate when creating CreatureWindow
-3. Test climber behavior with actual application windows
-4. Handle window movement (creature should follow its attached window)
+Next steps:
+1. Phase 7: Cursor Interaction - Global NSEvent monitor, CursorReactiveBehavior
+2. Phase 8: Polish - Settings UI, launch at login, multi-monitor
 
 Key files:
-- Sources/PocketGrisCore/Behavior/ClimberBehavior.swift - Window climbing behavior
-- Sources/PocketGrisCore/Services/WindowTracker.swift - Protocol + MockWindowTracker
-- Sources/PocketGrisApp/CreatureViewModel.swift - Accepts WindowTracker
-- Tests/PocketGrisCoreTests/BehaviorTests.swift - Climber tests
+- Sources/PocketGrisCore/Behavior/ - All behavior implementations
+- Sources/PocketGrisCore/Services/WindowTracker.swift - Window tracking
+- Sources/PocketGrisApp/CreatureViewModel.swift - View model with window tracking
+- Tests/PocketGrisCoreTests/BehaviorTests.swift - All behavior tests
 
 To test: swift build && swift test
-To trigger climber: swift run pocketgris trigger --behavior climber --gui
+To list behaviors: swift run pocketgris behaviors list
+To trigger specific behavior: swift run pocketgris trigger --behavior climber --gui
+To run app: swift run PocketGrisApp
 ```

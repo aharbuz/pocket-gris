@@ -36,6 +36,7 @@ public final class BehaviorRegistry: @unchecked Sendable {
         register(PeekBehavior())
         register(TraverseBehavior())
         register(StationaryBehavior())
+        register(ClimberBehavior())
     }
 
     public func register(_ behavior: any Behavior) {

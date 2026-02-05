@@ -23,6 +23,7 @@ final class CreatureViewModel: ObservableObject {
     private let screenBounds: ScreenRect
     private let random: RandomSource
     private var timeSource: TimeSource
+    private let windowTracker: WindowTracker?
 
     // Animation state for sliding
     private var slideStartPosition: Position = .zero
@@ -42,7 +43,8 @@ final class CreatureViewModel: ObservableObject {
         screenBounds: ScreenRect,
         spriteLoader: SpriteLoader,
         timeSource: TimeSource = SystemTimeSource(),
-        random: RandomSource = SystemRandomSource()
+        random: RandomSource = SystemRandomSource(),
+        windowTracker: WindowTracker? = nil
     ) {
         self.creature = creature
         self.behavior = BehaviorRegistry.shared.behavior(for: behaviorType) ?? PeekBehavior()
@@ -50,12 +52,15 @@ final class CreatureViewModel: ObservableObject {
         self.spriteLoader = spriteLoader
         self.timeSource = timeSource
         self.random = random
+        self.windowTracker = windowTracker
 
         // Initialize state
+        let windowFrames = windowTracker?.getWindowFrames() ?? []
         let context = BehaviorContext(
             creature: creature,
             screenBounds: screenBounds,
-            currentTime: timeSource.now
+            currentTime: timeSource.now,
+            windowFrames: windowFrames
         )
         self.state = behavior.start(context: context, random: random)
 
@@ -93,11 +98,13 @@ final class CreatureViewModel: ObservableObject {
     }
 
     func update(deltaTime: TimeInterval) {
+        let windowFrames = windowTracker?.getWindowFrames() ?? []
         let context = BehaviorContext(
             creature: creature,
             screenBounds: screenBounds,
             currentTime: timeSource.now,
-            cursorPosition: getCurrentCursorPosition()
+            cursorPosition: getCurrentCursorPosition(),
+            windowFrames: windowFrames
         )
 
         let events = behavior.update(state: &state, context: context, deltaTime: deltaTime)

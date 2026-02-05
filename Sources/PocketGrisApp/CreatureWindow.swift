@@ -35,6 +35,7 @@ final class CreatureWindow: NSWindow {
         creature: Creature,
         behavior behaviorType: BehaviorType,
         spriteLoader: SpriteLoader,
+        windowTracker: WindowTracker? = nil,
         onComplete: @escaping () -> Void
     ) {
         self.onComplete = onComplete
@@ -51,7 +52,8 @@ final class CreatureWindow: NSWindow {
             creature: creature,
             behaviorType: behaviorType,
             screenBounds: screenBounds,
-            spriteLoader: spriteLoader
+            spriteLoader: spriteLoader,
+            windowTracker: windowTracker
         )
 
         viewModel?.onComplete = { [weak self] in

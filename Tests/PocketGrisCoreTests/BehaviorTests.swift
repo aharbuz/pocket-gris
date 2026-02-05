@@ -357,6 +357,215 @@ final class BehaviorTests: XCTestCase {
         XCTAssertEqual(stationary?.type, .stationary)
     }
 
+    func testBehaviorRegistryIncludesClimber() {
+        let registry = BehaviorRegistry.shared
+        let climber = registry.behavior(for: .climber)
+        XCTAssertNotNil(climber)
+        XCTAssertEqual(climber?.type, .climber)
+    }
+
+    // MARK: - Climber Behavior Tests
+
+    func testClimberBehaviorStart() {
+        let behavior = ClimberBehavior()
+        let creature = makeClimberCreature()
+        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        let context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: windowFrames
+        )
+        // Random: int for window (0), int for edge (0=top), bool for direction, double for position
+        let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
+
+        let state = behavior.start(context: context, random: random)
+
+        XCTAssertEqual(state.phase, .enter)
+        XCTAssertNotNil(state.animation)
+        XCTAssertNotNil(state.metadata["windowIndex"])
+        XCTAssertNotNil(state.metadata["windowEdge"])
+    }
+
+    func testClimberBehaviorFallbackWithNoWindows() {
+        let behavior = ClimberBehavior()
+        let creature = makeClimberCreature()
+        // No windows in context
+        let context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: []
+        )
+        let random = FixedRandomSource(ints: [0], doubles: [0.5], bools: [true])
+
+        let state = behavior.start(context: context, random: random)
+
+        // Should still start but with fallback position
+        XCTAssertEqual(state.phase, .enter)
+        XCTAssertNotNil(state.animation)
+    }
+
+    func testClimberBehaviorPhaseTransitions() {
+        let behavior = ClimberBehavior()
+        let creature = makeClimberCreature()
+        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: windowFrames
+        )
+        let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+        XCTAssertEqual(state.phase, .enter)
+
+        // Move past enter phase (0.2s)
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.3,
+            windowFrames: windowFrames
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 0.3)
+
+        XCTAssertEqual(state.phase, .perform)
+        XCTAssertTrue(events.contains(.phaseChanged(.perform)))
+    }
+
+    func testClimberBehaviorCancel() {
+        let behavior = ClimberBehavior()
+        let creature = makeClimberCreature()
+        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        let context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: windowFrames
+        )
+        let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+        let events = behavior.cancel(state: &state)
+
+        XCTAssertEqual(state.phase, .complete)
+        XCTAssertTrue(events.contains(.cancelled))
+    }
+
+    func testClimberBehaviorCursorFlee() {
+        let behavior = ClimberBehavior()
+        // Use shy personality for higher cursor sensitivity (0.9)
+        // fleeThreshold = 100.0 * 0.9 = 90 pixels
+        let creature = Creature(
+            id: "shy-climber",
+            name: "Shy Climber",
+            personality: .shy,
+            animations: [
+                "climb": Animation(name: "climb", frameCount: 8, fps: 10),
+                "idle": Animation(name: "idle", frameCount: 8, fps: 6)
+            ]
+        )
+        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: windowFrames
+        )
+        let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+
+        // Move to perform phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.3,
+            windowFrames: windowFrames
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.3)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Cursor approaches within flee threshold (90 pixels for shy)
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.4,
+            cursorPosition: Position(x: state.position.x + 50, y: state.position.y),
+            windowFrames: windowFrames
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 0.1)
+
+        // Should flee to exit
+        XCTAssertEqual(state.phase, .exit)
+        XCTAssertTrue(events.contains(.phaseChanged(.exit)))
+    }
+
+    // MARK: - Mock Window Tracker Tests
+
+    func testMockWindowTrackerReturnsConfiguredFrames() {
+        let frames = [
+            ScreenRect(x: 100, y: 100, width: 800, height: 600),
+            ScreenRect(x: 500, y: 200, width: 400, height: 300)
+        ]
+        let tracker = MockWindowTracker(frames: frames)
+
+        let result = tracker.getWindowFrames()
+
+        XCTAssertEqual(result.count, 2)
+        XCTAssertEqual(result[0].x, 100)
+        XCTAssertEqual(result[1].width, 400)
+    }
+
+    func testMockWindowTrackerCanUpdateFrames() {
+        let tracker = MockWindowTracker(frames: [])
+        XCTAssertTrue(tracker.getWindowFrames().isEmpty)
+
+        tracker.frames = [ScreenRect(x: 0, y: 0, width: 100, height: 100)]
+        XCTAssertEqual(tracker.getWindowFrames().count, 1)
+    }
+
+    // MARK: - ScreenRect Window Edge Tests
+
+    func testScreenRectRandomPositionOnEdge() {
+        let rect = ScreenRect(x: 100, y: 100, width: 800, height: 600)
+        let random = FixedRandomSource(ints: [], doubles: [0.5])
+
+        let topPos = rect.randomPositionOnEdge(.top, random: random)
+        XCTAssertEqual(topPos.y, rect.minY)
+        XCTAssertGreaterThan(topPos.x, rect.minX)
+        XCTAssertLessThan(topPos.x, rect.maxX)
+    }
+
+    func testScreenRectCornerPosition() {
+        let rect = ScreenRect(x: 100, y: 100, width: 800, height: 600)
+
+        let topLeft = rect.cornerPosition(primary: .top, secondary: .left)
+        XCTAssertEqual(topLeft.x, rect.minX)
+        XCTAssertEqual(topLeft.y, rect.minY)
+
+        let bottomRight = rect.cornerPosition(primary: .bottom, secondary: .right)
+        XCTAssertEqual(bottomRight.x, rect.maxX)
+        XCTAssertEqual(bottomRight.y, rect.maxY)
+    }
+
+    func testScreenRectIsNearEdge() {
+        let rect = ScreenRect(x: 100, y: 100, width: 800, height: 600)
+
+        // Position near top edge
+        let nearTop = Position(x: 500, y: 105)
+        XCTAssertEqual(rect.isNearEdge(nearTop, threshold: 30), .top)
+
+        // Position near left edge
+        let nearLeft = Position(x: 105, y: 400)
+        XCTAssertEqual(rect.isNearEdge(nearLeft, threshold: 30), .left)
+
+        // Position far from any edge
+        let center = rect.center
+        XCTAssertNil(rect.isNearEdge(center, threshold: 30))
+    }
+
     // MARK: - Helpers
 
     private func makeTraverseCreature() -> Creature {
@@ -378,6 +587,18 @@ final class BehaviorTests: XCTestCase {
             name: "Stationary Test",
             personality: .curious,
             animations: [
+                "idle": Animation(name: "idle", frameCount: 8, fps: 6)
+            ]
+        )
+    }
+
+    private func makeClimberCreature() -> Creature {
+        Creature(
+            id: "climber-test",
+            name: "Climber Test",
+            personality: .curious,
+            animations: [
+                "climb": Animation(name: "climb", frameCount: 8, fps: 10),
                 "idle": Animation(name: "idle", frameCount: 8, fps: 6)
             ]
         )

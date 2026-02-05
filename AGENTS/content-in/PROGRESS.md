@@ -116,50 +116,70 @@
 - **AppDelegate/CreatureWindow**: Wired up GlobalCursorTracker
 - **9 new unit tests** for FollowBehavior, MockCursorTracker (87 total)
 
+#### Phase 8: Polish ✅
+- **Settings UI**: SwiftUI window accessible from menu bar (Cmd+,)
+  - Appearance interval sliders (min 1-60 min, max 1-120 min)
+  - Creature enable/disable toggles with personality labels
+  - Behavior enable/disable toggles with weight sliders (0.1-3.0)
+  - "Test Random Behavior" button for instant trigger
+  - Launch at login toggle
+  - Reset to Defaults button
+  - Live persistence to ~/Library/Application Support/PocketGris/settings.json
+  - Uses `AppSettings` typealias to disambiguate from `SwiftUI.Settings`
+- **SettingsWindowController**: NSWindow host with frame autosave, single-instance
+- **LaunchAtLoginManager**: SMAppService (macOS 13+) with graceful SPM fallback
+- **Multi-monitor support**: Creatures appear on random screen via `NSScreen.screens`
+  - CreatureWindow accepts target screen parameter
+  - AppDelegate picks random screen on each trigger
+- **Performance**: Already well-optimized (event-driven cursor, display link only when visible, bounded image cache)
+
 ### Current State
 - Build: ✅ Compiles cleanly
 - Tests: ✅ 87 tests passing
 - CLI: ✅ Works (`swift run pocketgris behaviors list` shows all 5 behaviors)
 - GUI: ✅ Runs, supports peek, traverse, stationary, climber, cursorReactive
+- Settings: ✅ Full SwiftUI settings window with live persistence
 
-### Remaining Phases
+### All Phases Complete (0-8)
 
-#### Phase 8: Polish
-- Settings UI
-- Launch at login
-- Multi-monitor support
-- Performance optimization
+The core feature set is complete. Potential future work:
+- More creatures and sprite art
+- Additional behaviors (dancing, sleeping, window-interacting)
+- Custom creature editor / drag-and-drop sprite import
+- Notification-triggered appearances
+- Proper .app bundle for distribution (enables launch at login, code signing)
+- App Store submission
 
 ---
 
 ## Continuation Prompt
 
 ```
-Continue implementing pocket-gris from Phase 8.
+Continue working on pocket-gris. All 8 phases are complete.
 
 Current state:
-- Phases 0-7 complete (foundation through cursor interaction)
+- Phases 0-8 complete (foundation through polish)
 - 87 unit tests passing
 - 5 behaviors: peek, traverse, stationary, climber, cursorReactive (follow)
-- Test creature "gris" with 12 animations (peek, retreat, idle, walk, climb)
-- Global cursor tracking via GlobalCursorTracker with NSEvent monitors
-- Window tracking via AccessibilityWindowTracker
+- Settings UI with interval/creature/behavior configuration
+- Multi-monitor support, launch at login (SMAppService)
+- Test creature "gris" with 12 animations
 
-Next steps:
-Phase 8: Polish
-- Settings UI (SwiftUI window for configuring intervals, enabled creatures)
-- Launch at login (SMLoginItemSetEnabled or LaunchAtLogin package)
-- Multi-monitor support (use NSScreen.screens, track which screen creature is on)
-- Performance optimization (reduce update frequency when idle)
+Potential next steps:
+- Create additional creatures with unique personalities and animations
+- Add new behaviors (e.g., dancing, sleeping on window title bars)
+- Build a proper .app bundle with Xcode for distribution
+- Add a creature editor or drag-and-drop sprite import
+- Notification-triggered or event-triggered appearances
+- Menu bar icon that changes based on creature activity
 
 Key files:
 - Sources/PocketGrisCore/Behavior/ - All behavior implementations
 - Sources/PocketGrisCore/Services/ - CursorTracker, WindowTracker
-- Sources/PocketGrisApp/ - App delegate, view model, creature window
+- Sources/PocketGrisApp/ - App delegate, settings, creature window
 - Tests/PocketGrisCoreTests/BehaviorTests.swift - All behavior tests
 
 To test: swift build && swift test
-To list behaviors: swift run pocketgris behaviors list
-To trigger specific behavior: swift run pocketgris trigger --behavior cursorReactive --gui
 To run app: swift run PocketGrisApp
+To trigger: swift run pocketgris trigger --behavior cursorReactive --gui
 ```

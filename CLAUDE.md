@@ -70,7 +70,7 @@ Resources/Sprites/<creature-id>/
 
 Generate test sprites: `python3 scripts/generate_sprites.py`
 
-## Current State (Phase 7 Complete)
+## Current State (Phase 8 Complete)
 
 ### Implemented
 - PeekBehavior - Peek from edges, retreat on cursor proximity
@@ -80,12 +80,19 @@ Generate test sprites: `python3 scripts/generate_sprites.py`
 - FollowBehavior (cursorReactive) - Follow cursor at safe distance, flee if too close
 - AccessibilityWindowTracker - Real window detection using CGWindowListCopyWindowInfo
 - GlobalCursorTracker - System-wide cursor tracking using NSEvent monitors
+- Settings UI - SwiftUI window with interval sliders, creature/behavior toggles, weights
+- Launch at login - SMAppService (macOS 13+), graceful fallback for SPM builds
+- Multi-monitor support - Random screen selection for creature appearances
 - Menu bar app with IPC
 - Smooth animation system with easing
 - 87 unit tests
 
-### Next Phase
-- Phase 8: Polish (settings UI, launch at login, multi-monitor)
+### Potential Future Work
+- More creatures and animations
+- Additional behaviors (e.g., dancing, sleeping, interacting with windows)
+- Custom creature editor
+- Drag-and-drop sprite import
+- Notification-triggered appearances
 
 ## Conventions
 
@@ -95,6 +102,11 @@ Generate test sprites: `python3 scripts/generate_sprites.py`
 - Emit `BehaviorEvent`s for state changes, don't mutate external state
 - Personality traits should affect behavior parameters (duration, speed, sensitivity)
 
+## Known Issues
+
+- `Settings` type name conflicts with `SwiftUI.Settings` - use `AppSettings` typealias in PocketGrisApp files that import SwiftUI
+- Launch at login requires a proper .app bundle; SPM builds will log a warning but continue
+
 ## Files to Know
 
 - `Sources/PocketGrisCore/Behavior/Behavior.swift` - Protocol + Registry
@@ -103,6 +115,9 @@ Generate test sprites: `python3 scripts/generate_sprites.py`
 - `Sources/PocketGrisCore/Behavior/FollowBehavior.swift` - Cursor-following behavior
 - `Sources/PocketGrisCore/Services/WindowTracker.swift` - Window detection
 - `Sources/PocketGrisCore/Services/CursorTracker.swift` - Global cursor tracking
+- `Sources/PocketGrisApp/SettingsView.swift` - SwiftUI settings UI + SettingsViewModel
+- `Sources/PocketGrisApp/SettingsWindowController.swift` - NSWindow host for settings
+- `Sources/PocketGrisApp/LaunchAtLoginManager.swift` - SMAppService wrapper
 - `Sources/PocketGrisApp/CreatureViewModel.swift` - Core→SwiftUI bridge
 - `Sources/PocketGrisApp/AppDelegate.swift` - App lifecycle, IPC handling
 - `AGENTS/content-in/PROGRESS.md` - Detailed session history

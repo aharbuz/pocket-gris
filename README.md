@@ -4,17 +4,20 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 
 ## Current Status
 
-**Phase 7 Complete** - 87 unit tests passing
+**Phase 8 Complete** - 87 unit tests passing
 
-### Implemented Behaviors
+### Behaviors
 - **Peek** - Creatures peek from screen edges, look around, retreat when cursor approaches
 - **Traverse** - Walk across screen from one edge to the opposite
 - **Stationary** - Appear at edge, perform idle antics, disappear
 - **Climber** - Climb along window edges, follows window if dragged
 - **CursorReactive** - Follow cursor at a safe distance, flee if too close
 
-### Working Features
+### Features
 - Menu bar app with pawprint icon
+- Settings UI with interval sliders, creature/behavior toggles, weight controls
+- Launch at login support (SMAppService)
+- Multi-monitor support (creatures appear on random screen)
 - Floating transparent windows (click-through, visible on all spaces)
 - Smooth sliding animations with easing
 - Global cursor tracking (works across all apps and spaces)
@@ -22,16 +25,8 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 - Test creature "gris" with 12 animations (peek, retreat, walk, climb, idle)
 - CLI for triggering and controlling the app
 - IPC communication between CLI and GUI
-
-## Features (Planned)
-
-- ✅ Animated creatures that peek around screen edges
-- ✅ Characters traverse across the screen
-- ✅ Stationary antics (idle animation)
-- ✅ Climbing window edges (follows dragged windows)
-- ✅ Cursor reactions (follow, flee when approached)
-- ✅ Scheduled appearances or manual trigger
-- ✅ Varied personalities (shy, curious, mischievous, chaotic)
+- Configurable appearance intervals and behavior weights
+- Per-creature and per-behavior enable/disable
 
 ## Architecture
 
@@ -75,7 +70,10 @@ Sources/
     ├── AppDelegate      # Menu bar setup, IPC handling
     ├── CreatureWindow   # Floating transparent window
     ├── CreatureViewModel # Bridges Core to SwiftUI
-    └── SpriteView       # SwiftUI sprite rendering
+    ├── SpriteView       # SwiftUI sprite rendering
+    ├── SettingsView     # SwiftUI settings UI
+    ├── SettingsWindowController # Settings window management
+    └── LaunchAtLoginManager    # SMAppService wrapper
 
 Resources/
 └── Sprites/

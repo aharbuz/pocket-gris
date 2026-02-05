@@ -4,18 +4,21 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 
 ## Current Status
 
-**Phase 6 Complete** - 78 unit tests passing
+**Phase 7 Complete** - 87 unit tests passing
 
 ### Implemented Behaviors
 - **Peek** - Creatures peek from screen edges, look around, retreat when cursor approaches
 - **Traverse** - Walk across screen from one edge to the opposite
 - **Stationary** - Appear at edge, perform idle antics, disappear
 - **Climber** - Climb along window edges, follows window if dragged
+- **CursorReactive** - Follow cursor at a safe distance, flee if too close
 
 ### Working Features
 - Menu bar app with pawprint icon
 - Floating transparent windows (click-through, visible on all spaces)
 - Smooth sliding animations with easing
+- Global cursor tracking (works across all apps and spaces)
+- Window tracking (creatures can climb window edges)
 - Test creature "gris" with 12 animations (peek, retreat, walk, climb, idle)
 - CLI for triggering and controlling the app
 - IPC communication between CLI and GUI
@@ -26,7 +29,7 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 - ✅ Characters traverse across the screen
 - ✅ Stationary antics (idle animation)
 - ✅ Climbing window edges (follows dragged windows)
-- 🔲 Cursor reactions (flee, follow, hide when approached)
+- ✅ Cursor reactions (follow, flee when approached)
 - ✅ Scheduled appearances or manual trigger
 - ✅ Varied personalities (shy, curious, mischievous, chaotic)
 
@@ -56,6 +59,7 @@ swift run pocketgris trigger --gui
 swift run pocketgris trigger --behavior traverse --gui
 swift run pocketgris trigger --behavior stationary --gui
 swift run pocketgris trigger --behavior climber --gui
+swift run pocketgris trigger --behavior cursorReactive --gui
 ```
 
 ## Structure

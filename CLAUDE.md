@@ -70,20 +70,21 @@ Resources/Sprites/<creature-id>/
 
 Generate test sprites: `python3 scripts/generate_sprites.py`
 
-## Current State (Phase 6 Complete)
+## Current State (Phase 7 Complete)
 
 ### Implemented
 - PeekBehavior - Peek from edges, retreat on cursor proximity
 - TraverseBehavior - Walk across screen edge to edge
 - StationaryBehavior - Appear, idle, disappear
 - ClimberBehavior - Climb along window edges, follows window movement
+- FollowBehavior (cursorReactive) - Follow cursor at safe distance, flee if too close
 - AccessibilityWindowTracker - Real window detection using CGWindowListCopyWindowInfo
+- GlobalCursorTracker - System-wide cursor tracking using NSEvent monitors
 - Menu bar app with IPC
 - Smooth animation system with easing
-- 78 unit tests
+- 87 unit tests
 
-### Next Phases
-- Phase 7: Cursor Interaction (global mouse monitor, reactive behaviors)
+### Next Phase
 - Phase 8: Polish (settings UI, launch at login, multi-monitor)
 
 ## Conventions
@@ -99,7 +100,9 @@ Generate test sprites: `python3 scripts/generate_sprites.py`
 - `Sources/PocketGrisCore/Behavior/Behavior.swift` - Protocol + Registry
 - `Sources/PocketGrisCore/Behavior/PeekBehavior.swift` - Reference implementation
 - `Sources/PocketGrisCore/Behavior/ClimberBehavior.swift` - Window-aware behavior
+- `Sources/PocketGrisCore/Behavior/FollowBehavior.swift` - Cursor-following behavior
 - `Sources/PocketGrisCore/Services/WindowTracker.swift` - Window detection
+- `Sources/PocketGrisCore/Services/CursorTracker.swift` - Global cursor tracking
 - `Sources/PocketGrisApp/CreatureViewModel.swift` - Core→SwiftUI bridge
 - `Sources/PocketGrisApp/AppDelegate.swift` - App lifecycle, IPC handling
 - `AGENTS/content-in/PROGRESS.md` - Detailed session history

@@ -66,6 +66,12 @@ public struct ClimberBehavior: Behavior {
         state.metadata["endY"] = String(endPosition.y)
         state.metadata["speed"] = String(speed)
 
+        // Store original window frame for tracking movement
+        state.metadata["windowX"] = String(window.x)
+        state.metadata["windowY"] = String(window.y)
+        state.metadata["windowWidth"] = String(window.width)
+        state.metadata["windowHeight"] = String(window.height)
+
         return state
     }
 
@@ -97,14 +103,40 @@ public struct ClimberBehavior: Behavior {
 
         case .perform:
             // Climb along the edge
-            guard let startX = Double(state.metadata["startX"] ?? ""),
-                  let startY = Double(state.metadata["startY"] ?? ""),
-                  let endX = Double(state.metadata["endX"] ?? ""),
-                  let endY = Double(state.metadata["endY"] ?? ""),
+            guard var startX = Double(state.metadata["startX"] ?? ""),
+                  var startY = Double(state.metadata["startY"] ?? ""),
+                  var endX = Double(state.metadata["endX"] ?? ""),
+                  var endY = Double(state.metadata["endY"] ?? ""),
                   let speed = Double(state.metadata["speed"] ?? "") else {
                 state.phase = .complete
                 events.append(.completed)
                 return events
+            }
+
+            // Track window movement
+            if let windowIndex = Int(state.metadata["windowIndex"] ?? ""),
+               let origWindowX = Double(state.metadata["windowX"] ?? ""),
+               let origWindowY = Double(state.metadata["windowY"] ?? ""),
+               windowIndex < context.windowFrames.count {
+                let currentWindow = context.windowFrames[windowIndex]
+                let deltaX = currentWindow.x - origWindowX
+                let deltaY = currentWindow.y - origWindowY
+
+                // If window moved, adjust our coordinates
+                if abs(deltaX) > 0.5 || abs(deltaY) > 0.5 {
+                    startX += deltaX
+                    startY += deltaY
+                    endX += deltaX
+                    endY += deltaY
+
+                    // Update stored metadata with new positions
+                    state.metadata["startX"] = String(startX)
+                    state.metadata["startY"] = String(startY)
+                    state.metadata["endX"] = String(endX)
+                    state.metadata["endY"] = String(endY)
+                    state.metadata["windowX"] = String(currentWindow.x)
+                    state.metadata["windowY"] = String(currentWindow.y)
+                }
             }
 
             // Calculate progress based on time and speed

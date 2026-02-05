@@ -453,6 +453,93 @@ final class BehaviorTests: XCTestCase {
         XCTAssertTrue(events.contains(.cancelled))
     }
 
+    func testClimberBehaviorFollowsWindowMovement() {
+        let behavior = ClimberBehavior()
+        let creature = makeClimberCreature()
+        var windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: windowFrames
+        )
+        // Random: int for window (0), int for edge (0=top), bool for direction, double for position
+        let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+
+        // Move to perform phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.3,
+            windowFrames: windowFrames
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.3)
+        XCTAssertEqual(state.phase, .perform)
+
+        let positionBeforeMove = state.position
+
+        // Now move the window by 200px to the right and 50px down
+        windowFrames = [ScreenRect(x: 300, y: 150, width: 800, height: 600)]
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.4,
+            windowFrames: windowFrames
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.1)
+
+        // Creature should have moved with the window
+        let positionAfterMove = state.position
+        let deltaX = positionAfterMove.x - positionBeforeMove.x
+        let deltaY = positionAfterMove.y - positionBeforeMove.y
+
+        // The delta should include window movement (200, 50) plus some progress along the edge
+        XCTAssertGreaterThan(deltaX, 100, "Creature should follow window horizontally")
+        XCTAssertGreaterThan(deltaY, 40, "Creature should follow window vertically")
+    }
+
+    func testClimberBehaviorHandlesWindowClose() {
+        let behavior = ClimberBehavior()
+        let creature = makeClimberCreature()
+        var windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: windowFrames
+        )
+        let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+
+        // Move to perform phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.3,
+            windowFrames: windowFrames
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.3)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Now close the window (empty window list)
+        windowFrames = []
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.4,
+            windowFrames: windowFrames
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 0.1)
+
+        // Should still be in perform phase (continues with last known position)
+        // The creature continues climbing at its last known trajectory
+        XCTAssertEqual(state.phase, .perform)
+        XCTAssertFalse(events.contains(.completed))
+    }
+
     func testClimberBehaviorCursorFlee() {
         let behavior = ClimberBehavior()
         // Use shy personality for higher cursor sensitivity (0.9)

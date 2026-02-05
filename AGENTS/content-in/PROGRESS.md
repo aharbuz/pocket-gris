@@ -91,17 +91,19 @@
   - Speed based on personality (shy=40, curious=70, mischievous=100, chaotic=130 px/s)
   - Cursor proximity triggers flee
   - Falls back gracefully when no windows available
+  - **Window movement tracking**: Creature follows if window is dragged/resized
+  - Handles window close gracefully (continues with last trajectory)
 - **ScreenRect extensions**: randomPositionOnEdge, cornerPosition, isNearEdge
 - **Climb animation**: Added to gris creature (8 frames, 10fps)
 - **CreatureViewModel**: Now accepts optional WindowTracker, passes windowFrames to context
 - **AppDelegate/CreatureWindow**: Wired up AccessibilityWindowTracker
-- **11 new unit tests** for ClimberBehavior, MockWindowTracker, ScreenRect edges (76 total)
+- **13 unit tests** for ClimberBehavior, MockWindowTracker, ScreenRect edges, window movement (78 total)
 
 ### Current State
 - Build: ✅ Compiles cleanly
-- Tests: ✅ 76 tests passing
+- Tests: ✅ 78 tests passing
 - CLI: ✅ Works (`swift run pocketgris behaviors list` shows all 4 behaviors)
-- GUI: ✅ Runs, supports peek, traverse, stationary, climber
+- GUI: ✅ Runs, supports peek, traverse, stationary, climber (with window tracking)
 
 ### Remaining Phases
 
@@ -124,10 +126,11 @@ Continue implementing pocket-gris from Phase 7.
 
 Current state:
 - Phases 0-6 complete (foundation, peek, GUI shell, animation polish, traverse/stationary, window tracking)
-- 76 unit tests passing
+- 78 unit tests passing
 - 4 behaviors: peek, traverse, stationary, climber
 - Test creature "gris" with 12 animations (peek, retreat, idle, walk, climb)
 - Menu bar app with AccessibilityWindowTracker for window-aware behaviors
+- Climber behavior tracks window movement (creature follows dragged windows)
 
 Next steps:
 1. Phase 7: Cursor Interaction - Global NSEvent monitor, CursorReactiveBehavior

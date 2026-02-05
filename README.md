@@ -4,18 +4,19 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 
 ## Current Status
 
-**Phase 5 Complete** - 65 unit tests passing
+**Phase 6 Complete** - 78 unit tests passing
 
 ### Implemented Behaviors
 - **Peek** - Creatures peek from screen edges, look around, retreat when cursor approaches
 - **Traverse** - Walk across screen from one edge to the opposite
 - **Stationary** - Appear at edge, perform idle antics, disappear
+- **Climber** - Climb along window edges, follows window if dragged
 
 ### Working Features
 - Menu bar app with pawprint icon
 - Floating transparent windows (click-through, visible on all spaces)
 - Smooth sliding animations with easing
-- Test creature "gris" with 11 animations
+- Test creature "gris" with 12 animations (peek, retreat, walk, climb, idle)
 - CLI for triggering and controlling the app
 - IPC communication between CLI and GUI
 
@@ -24,8 +25,8 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 - ✅ Animated creatures that peek around screen edges
 - ✅ Characters traverse across the screen
 - ✅ Stationary antics (idle animation)
+- ✅ Climbing window edges (follows dragged windows)
 - 🔲 Cursor reactions (flee, follow, hide when approached)
-- 🔲 Climbing window edges, hanging from title bars
 - ✅ Scheduled appearances or manual trigger
 - ✅ Varied personalities (shy, curious, mischievous, chaotic)
 
@@ -54,6 +55,7 @@ swift run PocketGrisApp
 swift run pocketgris trigger --gui
 swift run pocketgris trigger --behavior traverse --gui
 swift run pocketgris trigger --behavior stationary --gui
+swift run pocketgris trigger --behavior climber --gui
 ```
 
 ## Structure
@@ -63,7 +65,7 @@ Sources/
 ├── PocketGrisCore/      # Pure Swift library, zero UI deps
 │   ├── Behavior/        # Behavior protocol and implementations
 │   ├── Types/           # Position, Creature, Animation, etc.
-│   └── Services/        # Scheduler, SpriteLoader, IPC
+│   └── Services/        # Scheduler, SpriteLoader, IPC, WindowTracker
 ├── PocketGrisCLI/       # CLI for testing/control
 └── PocketGrisApp/       # Menu bar app
     ├── AppDelegate      # Menu bar setup, IPC handling
@@ -78,6 +80,7 @@ Resources/
         ├── peek-*/      # Directional peek animations
         ├── retreat-*/   # Retreat animations
         ├── walk-*/      # Walking animations
+        ├── climb/       # Climbing animation
         └── idle/        # Idle animation
 ```
 

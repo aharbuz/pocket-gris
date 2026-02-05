@@ -146,15 +146,26 @@ struct CreaturesList: ParsableCommand {
     )
 
     func run() {
-        // TODO: Load from Resources/Sprites
-        print("Available creatures:")
-        print("  (No creatures loaded - add sprite folders to Resources/Sprites/)")
-        print("")
-        print("Expected structure:")
-        print("  Resources/Sprites/<creature-id>/")
-        print("    creature.json")
-        print("    peek-left/frame-001.png, ...")
-        print("    retreat-left/frame-001.png, ...")
+        let spriteLoader = SpriteLoader()
+        let creatures = spriteLoader.loadAllCreatures()
+
+        if creatures.isEmpty {
+            print("Available creatures:")
+            print("  (No creatures loaded - add sprite folders to Resources/Sprites/)")
+            print("")
+            print("Expected structure:")
+            print("  Resources/Sprites/<creature-id>/")
+            print("    creature.json")
+            print("    peek-left/frame-001.png, ...")
+            print("    retreat-left/frame-001.png, ...")
+        } else {
+            print("Available creatures (\(creatures.count)):")
+            for creature in creatures.sorted(by: { $0.id < $1.id }) {
+                print("  \(creature.id): \(creature.name)")
+                print("    Personality: \(creature.personality.rawValue)")
+                print("    Animations: \(creature.animations.keys.sorted().joined(separator: ", "))")
+            }
+        }
     }
 }
 

@@ -1,10 +1,11 @@
 import AppKit
 import PocketGrisCore
 
-// Menu bar app - no dock icon
-NSApp.setActivationPolicy(.accessory)
-
 let app = NSApplication.shared
+
+// Menu bar app - no dock icon
+app.setActivationPolicy(.accessory)
+
 let delegate = AppDelegate()
 app.delegate = delegate
 

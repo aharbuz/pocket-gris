@@ -38,20 +38,33 @@
 - IPC listener responding to CLI commands
 - Menu: Trigger Now, Enabled toggle, Settings, Quit
 
+---
+
+## Session: 2026-02-05
+
+#### Phase 4: Animation Polish ✅
+- **Test creature "gris"**: Created with Python script generating 64x64 PNG frames
+  - 9 animations: peek-left/right/top/bottom, retreat-left/right/top/bottom, idle
+  - creature.json manifest with personality and animation definitions
+- **ImageCache**: Thread-safe NSImage caching for sprite frames
+  - Singleton with max cache size (500 images)
+  - Background preloading of creature animations
+  - Prevents repeated disk reads during animation
+- **Smooth sliding animations**: Creature slides in/out from screen edges
+  - displayPosition (interpolated) vs position (from behavior)
+  - Ease-out cubic interpolation for natural deceleration
+  - Offscreen start/end positions based on edge
+- **CLI creatures list**: Now actually loads and displays creatures
+- **Fixed main.swift**: NSApplication initialization order
+- **5 new unit tests** for SpriteLoader (55 total)
+
 ### Current State
 - Build: ✅ Compiles cleanly
-- Tests: ✅ 50 tests passing
-- CLI: ✅ Works (`swift run pocketgris version`)
-- GUI: ✅ Builds, shows menu bar icon, displays placeholder sprite
+- Tests: ✅ 55 tests passing
+- CLI: ✅ Works (`swift run pocketgris creatures list` shows gris)
+- GUI: ✅ Runs, loads creatures, responds to triggers
 
 ### Remaining Phases
-
-#### Phase 4: Full Animation
-- Frame-by-frame animation timer improvements
-- Window position animation (enter/exit sliding)
-- Sprite caching
-- Full scheduler integration
-- Menu bar controls refinement
 
 #### Phase 5: Traversal & Stationary Behaviors
 - TraverseBehavior (walk across screen)
@@ -78,27 +91,29 @@
 ## Continuation Prompt
 
 ```
-Continue implementing pocket-gris from Phase 4.
+Continue implementing pocket-gris from Phase 5.
 
 Current state:
-- Phases 0-3 complete (foundation, peek behavior, GUI shell)
-- 50 unit tests passing
-- Menu bar app builds and shows placeholder sprite
-- No real sprite assets yet (uses placeholder)
+- Phases 0-4 complete (foundation, peek behavior, GUI shell, animation polish)
+- 55 unit tests passing
+- Test creature "gris" with PNG animations
+- Menu bar app with sliding entrance/exit animations
+- ImageCache for efficient sprite rendering
 
 Next steps:
-1. Phase 4: Improve animation system - add sliding entrance/exit, sprite caching
-2. Create a test creature with placeholder PNG frames to verify full pipeline
-3. Phase 5: Add TraverseBehavior and StationaryBehavior
-4. Continue through remaining phases
-
-The plan is in the git history or can be referenced from the original planning session.
+1. Phase 5: Add TraverseBehavior (walk across screen) and StationaryBehavior
+2. Path animation system for smooth movement
+3. Continue through remaining phases
 
 Key files:
 - Sources/PocketGrisCore/ - Pure Swift library
 - Sources/PocketGrisCLI/CLI.swift - Command line interface
-- Sources/PocketGrisApp/ - Menu bar app (AppDelegate, CreatureWindow, CreatureViewModel, SpriteView)
+- Sources/PocketGrisApp/ - Menu bar app (AppDelegate, CreatureWindow, CreatureViewModel, SpriteView, ImageCache)
 - Tests/PocketGrisCoreTests/ - Unit tests
+- Resources/Sprites/gris/ - Test creature with animations
+- scripts/generate_sprites.py - Sprite generation script
 
-To test: swift build && swift test && swift run pocketgris version
+To test: swift build && swift test && swift run pocketgris creatures list
+To run: swift run PocketGrisApp (check menu bar for pawprint icon)
+To trigger: swift run pocketgris trigger --gui
 ```

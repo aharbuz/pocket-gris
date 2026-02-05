@@ -13,12 +13,11 @@ struct SpriteView: View {
                 if viewModel.isVisible {
                     spriteImage
                         .position(
-                            x: CGFloat(viewModel.position.x),
-                            y: CGFloat(viewModel.position.y)
+                            x: CGFloat(viewModel.displayPosition.x),
+                            y: CGFloat(viewModel.displayPosition.y)
                         )
                         .scaleEffect(x: viewModel.flipHorizontal ? -1 : 1, y: 1)
-                        .animation(.linear(duration: 0.1), value: viewModel.position.x)
-                        .animation(.linear(duration: 0.1), value: viewModel.position.y)
+                        .opacity(viewModel.opacity)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -28,7 +27,7 @@ struct SpriteView: View {
     @ViewBuilder
     private var spriteImage: some View {
         if let path = viewModel.currentFramePath,
-           let nsImage = NSImage(contentsOfFile: path) {
+           let nsImage = ImageCache.shared.image(for: path) {
             Image(nsImage: nsImage)
                 .resizable()
                 .interpolation(.none)  // Pixel-perfect scaling

@@ -28,12 +28,24 @@ Behaviors follow a state machine pattern:
 
 Phases: `idle` → `enter` → `perform` → `exit` → `complete`
 
+### Scene / Choreographer System
+Scenes define choreographed multi-creature animations:
+- `Scene` > `SceneTrack` > `SceneSegment` (segments.count == waypoints.count - 1)
+- `SceneStorage` persists scenes as JSON to ~/Library/Application Support/PocketGris/scenes/
+- `ScriptedBehavior` implements `Behavior` to play back a track's waypoints
+- `ScenePlayer` coordinates multi-track playback, one `CreatureWindow` per track
+- `BehaviorScheduler` supports `SchedulerTrigger` enum (.behavior or .scene) via `setUnifiedTriggerHandler`
+- Choreographer UI: fullscreen overlay for waypoint placement + floating tool panel
+- `PGScene`/`PGSceneStorage` typealiases resolve SwiftUI name conflicts in PocketGrisApp
+
 ### Key Types
 - `Creature` - Character definition with personality and animations
 - `Animation` / `AnimationState` - Frame sequences and playback
 - `BehaviorState` - Current state of a running behavior
 - `BehaviorContext` - Environment info (screen bounds, cursor, time)
 - `Position` / `ScreenRect` / `ScreenEdge` - Geometry primitives
+- `Scene` / `SceneTrack` / `SceneSegment` - Choreographed animation data
+- `SchedulerTrigger` - Enum distinguishing .behavior vs .scene triggers
 
 ## Testing
 
@@ -80,7 +92,7 @@ python3 scripts/extract_sprites.py \
 Background removal is done manually on the exported raw frames, then processed
 (position normalization, auto-crop) into final sprites.
 
-## Current State (Phase 8 Complete)
+## Current State (Choreographer Complete)
 
 ### Creatures
 - **gris** - Pixel art pig with red scarf; real sprites for walk-left, walk-right, idle (10 frames each); generated sprites for peek, retreat, climb
@@ -92,6 +104,9 @@ Background removal is done manually on the exported raw frames, then processed
 - StationaryBehavior - Appear, idle, disappear
 - ClimberBehavior - Climb along window edges, follows window movement
 - FollowBehavior (cursorReactive) - Follow cursor at safe distance, flee if too close
+- ScriptedBehavior (.scene) - Plays back a track's waypoints for choreographed animations
+- Animation Choreographer - Visual scene editor with multi-track waypoint placement and playback
+- ScenePlayer - Multi-track coordinator, spawns one CreatureWindow per track
 - AccessibilityWindowTracker - Real window detection using CGWindowListCopyWindowInfo
 - GlobalCursorTracker - System-wide cursor tracking using NSEvent monitors
 - Settings UI - SwiftUI window with interval sliders, creature/behavior toggles, weights
@@ -99,7 +114,7 @@ Background removal is done manually on the exported raw frames, then processed
 - Multi-monitor support - Random screen selection for creature appearances
 - Menu bar app with IPC
 - Smooth animation system with easing
-- 87 unit tests
+- 116 unit tests
 
 ### Potential Future Work
 - More creatures and animations
@@ -119,6 +134,8 @@ Background removal is done manually on the exported raw frames, then processed
 ## Known Issues
 
 - `Settings` type name conflicts with `SwiftUI.Settings` - use `AppSettings` typealias in PocketGrisApp files that import SwiftUI
+- `Scene` and `SceneStorage` in PocketGrisCore conflict with SwiftUI types - use `PGScene`/`PGSceneStorage` typealiases (defined in `ChoreographerViewModel.swift`)
+- AppDelegate is NOT `@MainActor` - classes instantiated as its properties (ScenePlayer, ChoreographerController) can't be `@MainActor` either
 - Launch at login requires a proper .app bundle; SPM builds will log a warning but continue
 
 ## Files to Know
@@ -134,4 +151,14 @@ Background removal is done manually on the exported raw frames, then processed
 - `Sources/PocketGrisApp/LaunchAtLoginManager.swift` - SMAppService wrapper
 - `Sources/PocketGrisApp/CreatureViewModel.swift` - Core→SwiftUI bridge
 - `Sources/PocketGrisApp/AppDelegate.swift` - App lifecycle, IPC handling
+- `Sources/PocketGrisCore/Scene/SceneTypes.swift` - Scene, SceneTrack, SceneSegment, SnapMode
+- `Sources/PocketGrisCore/Scene/SceneStorage.swift` - JSON persistence for scenes
+- `Sources/PocketGrisCore/Behavior/ScriptedBehavior.swift` - Behavior for track playback
+- `Sources/PocketGrisApp/ScenePlayer.swift` - Multi-track scene coordinator
+- `Sources/PocketGrisApp/Choreographer/ChoreographerController.swift` - Overlay + panel lifecycle
+- `Sources/PocketGrisApp/Choreographer/ChoreographerViewModel.swift` - Shared state + typealiases
+- `Sources/PocketGrisApp/Choreographer/ChoreographerOverlayWindow.swift` - Fullscreen overlay
+- `Sources/PocketGrisApp/Choreographer/ChoreographerOverlayView.swift` - Waypoint/path rendering
+- `Sources/PocketGrisApp/Choreographer/ChoreographerPanelController.swift` - Tool panel (NSPanel)
+- `Sources/PocketGrisApp/Choreographer/ChoreographerPanelView.swift` - Panel UI controls
 - `AGENTS/content-in/PROGRESS.md` - Detailed session history

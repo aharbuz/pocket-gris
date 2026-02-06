@@ -4,7 +4,7 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 
 ## Current Status
 
-**Phase 8 Complete** - 87 unit tests passing
+**Choreographer Complete** - 116 unit tests passing
 
 ### Behaviors
 - **Peek** - Creatures peek from screen edges, look around, retreat when cursor approaches
@@ -12,9 +12,12 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 - **Stationary** - Appear at edge, perform idle antics, disappear
 - **Climber** - Climb along window edges, follows window if dragged
 - **CursorReactive** - Follow cursor at a safe distance, flee if too close
+- **Scene** - Choreographed multi-creature animations with waypoint paths
 
 ### Features
 - Menu bar app with pawprint icon
+- Animation Choreographer - visual scene editor with multi-track waypoint placement (Cmd+Shift+C)
+- ScenePlayer - multi-track playback, one creature window per track
 - Settings UI with interval sliders, creature/behavior toggles, weight controls
 - Launch at login support (SMAppService)
 - Multi-monitor support (creatures appear on random screen)
@@ -22,7 +25,7 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 - Smooth sliding animations with easing
 - Global cursor tracking (works across all apps and spaces)
 - Window tracking (creatures can climb window edges)
-- Two creatures: "gris" (test, 12 animations) and "pig-gnome" (pixel art, walk + idle)
+- Two creatures: "gris" (pixel art, 12 animations) and "pig-gnome" (pixel art, walk + idle)
 - CLI for triggering and controlling the app
 - IPC communication between CLI and GUI
 - Configurable appearance intervals and behavior weights
@@ -63,6 +66,7 @@ swift run pocketgris trigger --behavior cursorReactive --gui
 Sources/
 ├── PocketGrisCore/      # Pure Swift library, zero UI deps
 │   ├── Behavior/        # Behavior protocol and implementations
+│   ├── Scene/           # Scene types, storage, choreography data model
 │   ├── Types/           # Position, Creature, Animation, etc.
 │   └── Services/        # Scheduler, SpriteLoader, IPC, WindowTracker
 ├── PocketGrisCLI/       # CLI for testing/control
@@ -71,9 +75,17 @@ Sources/
     ├── CreatureWindow   # Floating transparent window
     ├── CreatureViewModel # Bridges Core to SwiftUI
     ├── SpriteView       # SwiftUI sprite rendering
+    ├── ScenePlayer      # Multi-track scene coordinator
     ├── SettingsView     # SwiftUI settings UI
     ├── SettingsWindowController # Settings window management
-    └── LaunchAtLoginManager    # SMAppService wrapper
+    ├── LaunchAtLoginManager    # SMAppService wrapper
+    └── Choreographer/   # Animation scene editor
+        ├── ChoreographerController    # Overlay + panel lifecycle
+        ├── ChoreographerViewModel     # Shared state
+        ├── ChoreographerOverlayWindow # Fullscreen overlay
+        ├── ChoreographerOverlayView   # Waypoint/path rendering
+        ├── ChoreographerPanelController # Tool panel
+        └── ChoreographerPanelView     # Panel UI controls
 
 Resources/
 └── Sprites/

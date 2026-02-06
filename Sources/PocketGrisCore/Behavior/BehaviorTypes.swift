@@ -7,6 +7,7 @@ public enum BehaviorType: String, CaseIterable, Codable, Sendable {
     case stationary     // Appear, do antics, disappear
     case climber        // Climb window edges
     case cursorReactive // React to mouse position
+    case scene          // Scripted scene playback along waypoints
 }
 
 /// State machine phases for behavior execution

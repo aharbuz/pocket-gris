@@ -48,16 +48,44 @@ final class CreatureViewModel: ObservableObject {
         windowTracker: WindowTracker? = nil,
         cursorTracker: CursorTracker? = nil
     ) {
+        let resolved = BehaviorRegistry.shared.behavior(for: behaviorType) ?? PeekBehavior()
         self.creature = creature
-        self.behavior = BehaviorRegistry.shared.behavior(for: behaviorType) ?? PeekBehavior()
+        self.behavior = resolved
         self.screenBounds = screenBounds
         self.spriteLoader = spriteLoader
         self.timeSource = timeSource
         self.random = random
         self.windowTracker = windowTracker
         self.cursorTracker = cursorTracker
+        self.state = BehaviorState()
 
-        // Initialize state
+        initializeBehavior()
+    }
+
+    init(
+        creature: Creature,
+        behavior: any Behavior,
+        screenBounds: ScreenRect,
+        spriteLoader: SpriteLoader,
+        timeSource: TimeSource = SystemTimeSource(),
+        random: RandomSource = SystemRandomSource(),
+        windowTracker: WindowTracker? = nil,
+        cursorTracker: CursorTracker? = nil
+    ) {
+        self.creature = creature
+        self.behavior = behavior
+        self.screenBounds = screenBounds
+        self.spriteLoader = spriteLoader
+        self.timeSource = timeSource
+        self.random = random
+        self.windowTracker = windowTracker
+        self.cursorTracker = cursorTracker
+        self.state = BehaviorState()
+
+        initializeBehavior()
+    }
+
+    private func initializeBehavior() {
         let windowFrames = windowTracker?.getWindowFrames() ?? []
         let context = BehaviorContext(
             creature: creature,

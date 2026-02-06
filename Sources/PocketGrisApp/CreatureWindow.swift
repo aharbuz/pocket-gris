@@ -39,9 +39,6 @@ final class CreatureWindow: NSWindow {
         cursorTracker: CursorTracker? = nil,
         onComplete: @escaping () -> Void
     ) {
-        self.onComplete = onComplete
-
-        // Create view model
         let screenBounds = ScreenRect(
             x: frame.origin.x,
             y: frame.origin.y,
@@ -49,7 +46,7 @@ final class CreatureWindow: NSWindow {
             height: frame.height
         )
 
-        viewModel = CreatureViewModel(
+        let vm = CreatureViewModel(
             creature: creature,
             behaviorType: behaviorType,
             screenBounds: screenBounds,
@@ -57,6 +54,38 @@ final class CreatureWindow: NSWindow {
             windowTracker: windowTracker,
             cursorTracker: cursorTracker
         )
+        showWithViewModel(vm, onComplete: onComplete)
+    }
+
+    func show(
+        creature: Creature,
+        behavior: any Behavior,
+        spriteLoader: SpriteLoader,
+        windowTracker: WindowTracker? = nil,
+        cursorTracker: CursorTracker? = nil,
+        onComplete: @escaping () -> Void
+    ) {
+        let screenBounds = ScreenRect(
+            x: frame.origin.x,
+            y: frame.origin.y,
+            width: frame.width,
+            height: frame.height
+        )
+
+        let vm = CreatureViewModel(
+            creature: creature,
+            behavior: behavior,
+            screenBounds: screenBounds,
+            spriteLoader: spriteLoader,
+            windowTracker: windowTracker,
+            cursorTracker: cursorTracker
+        )
+        showWithViewModel(vm, onComplete: onComplete)
+    }
+
+    private func showWithViewModel(_ vm: CreatureViewModel, onComplete: @escaping () -> Void) {
+        self.onComplete = onComplete
+        self.viewModel = vm
 
         viewModel?.onComplete = { [weak self] in
             DispatchQueue.main.async {

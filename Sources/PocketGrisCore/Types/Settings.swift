@@ -20,13 +20,17 @@ public struct Settings: Equatable, Codable, Sendable {
     /// Behavior weights for scheduler
     public var behaviorWeights: [String: Double]
 
+    /// Scene weights for scheduler (scene ID → weight)
+    public var sceneWeights: [String: Double]
+
     public init(
         enabled: Bool = true,
         minInterval: TimeInterval = 15 * 60,  // 15 minutes
         maxInterval: TimeInterval = 30 * 60,  // 30 minutes
         launchAtLogin: Bool = false,
         enabledCreatures: Set<String> = [],
-        behaviorWeights: [String: Double] = [:]
+        behaviorWeights: [String: Double] = [:],
+        sceneWeights: [String: Double] = [:]
     ) {
         self.enabled = enabled
         self.minInterval = minInterval
@@ -34,6 +38,7 @@ public struct Settings: Equatable, Codable, Sendable {
         self.launchAtLogin = launchAtLogin
         self.enabledCreatures = enabledCreatures
         self.behaviorWeights = behaviorWeights
+        self.sceneWeights = sceneWeights
     }
 
     /// Default settings

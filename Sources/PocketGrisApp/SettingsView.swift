@@ -237,6 +237,7 @@ final class SettingsViewModel: ObservableObject {
         case .stationary: return "Stationary"
         case .climber: return "Climber"
         case .cursorReactive: return "Follow Cursor"
+        case .scene: return "Scene"
         }
     }
 

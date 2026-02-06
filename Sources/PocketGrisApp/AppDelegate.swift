@@ -12,11 +12,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let cursorTracker = GlobalCursorTracker()
     private var isEnabled = true
     private let settingsWindowController = SettingsWindowController()
+    private let sceneStorage = SceneStorage()
+    private let scenePlayer = ScenePlayer()
+    private var choreographerController: ChoreographerController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
         setupIPC()
         loadCreatures()
+        loadScenes()
         startScheduler()
     }
 
@@ -24,6 +28,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ipcService.stopListening()
         ipcService.markGUIRunning(false)
         scheduler.stop()
+        scenePlayer.cancel()
+        choreographerController?.close()
     }
 
     // MARK: - Menu Bar
@@ -47,6 +53,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
+
+        let choreoItem = NSMenuItem(title: "Choreographer...", action: #selector(openChoreographer), keyEquivalent: "C")
+        choreoItem.keyEquivalentModifierMask = [.command, .shift]
+        menu.addItem(choreoItem)
+
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
 
@@ -83,6 +94,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.scheduler.updateSettings(settings)
             }
         )
+    }
+
+    @objc private func openChoreographer() {
+        if choreographerController == nil {
+            choreographerController = ChoreographerController(
+                spriteLoader: spriteLoader,
+                sceneStorage: sceneStorage,
+                scenePlayer: scenePlayer,
+                windowTracker: windowTracker,
+                cursorTracker: cursorTracker
+            )
+        }
+        choreographerController?.open()
     }
 
     @objc private func quit() {
@@ -145,6 +169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.async { [weak self] in
                 self?.creatureWindow?.close()
                 self?.creatureWindow = nil
+                self?.scenePlayer.cancel()
             }
             return IPCResponse(success: true, message: "Cancelled")
 
@@ -156,13 +181,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 data: [
                     "enabled": String(isEnabled),
                     "creatures": String(creatures.count),
-                    "windowVisible": String(creatureWindow != nil)
+                    "windowVisible": String(creatureWindow != nil),
+                    "sceneActive": String(scenePlayer.isActive)
                 ]
             )
         }
     }
 
-    // MARK: - Creatures
+    // MARK: - Creatures & Scenes
 
     private func loadCreatures() {
         let creatures = spriteLoader.loadAllCreatures()
@@ -175,13 +201,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    private func loadScenes() {
+        let scenes = sceneStorage.loadAll()
+        scheduler.updateScenes(scenes)
+        if !scenes.isEmpty {
+            print("Loaded \(scenes.count) scenes")
+        }
+    }
+
+    func reloadScenes() {
+        loadScenes()
+    }
+
     private func startScheduler() {
         let settings = Settings.load()
         scheduler.updateSettings(settings)
         isEnabled = settings.enabled
 
-        scheduler.setTriggerHandler { [weak self] creature, behaviorType in
-            self?.showCreature(creature, behavior: behaviorType)
+        scheduler.setUnifiedTriggerHandler { [weak self] trigger in
+            switch trigger {
+            case .behavior(let creature, let behaviorType):
+                self?.showCreature(creature, behavior: behaviorType)
+            case .scene(let scene):
+                self?.playScene(scene)
+            }
         }
 
         scheduler.start()
@@ -209,5 +252,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.creatureWindow = nil
         }
         creatureWindow = window
+    }
+
+    private func playScene(_ scene: Scene) {
+        guard isEnabled else { return }
+
+        // Close any existing single-creature window
+        creatureWindow?.close()
+        creatureWindow = nil
+
+        scenePlayer.play(
+            scene: scene,
+            spriteLoader: spriteLoader,
+            windowTracker: windowTracker,
+            cursorTracker: cursorTracker
+        ) {
+            // Scene completed
+        }
     }
 }

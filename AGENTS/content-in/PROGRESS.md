@@ -149,16 +149,44 @@
 - **idle**: 10 frames @ 496x546 — real pixel art replacing generated sprites
 - **creature.json updated**: frame counts 8→10, fps adjusted to 8 for walk-left, walk-right, idle
 
+#### Animation Choreographer (6 phases) ✅
+- **Scene Data Model** (PocketGrisCore):
+  - `Scene` > `SceneTrack` > `SceneSegment` with invariant: segments.count == waypoints.count - 1
+  - `SnapMode` enum for waypoint snapping (none, screenEdge, windowEdge)
+  - `SceneStorage` for JSON persistence to ~/Library/Application Support/PocketGris/scenes/
+  - `ScriptedBehavior` - Behavior protocol implementation that plays back a track's waypoints
+- **Scene Playback** (PocketGrisApp):
+  - `ScenePlayer` - Multi-track coordinator, spawns one CreatureWindow per track
+  - Integrates with `BehaviorScheduler` via `SchedulerTrigger` enum (.behavior or .scene)
+  - `CreatureViewModel` second init for direct `any Behavior` injection
+  - `CreatureWindow.show()` overload for direct behavior (no registry lookup)
+- **Choreographer UI** (PocketGrisApp/Choreographer/):
+  - `ChoreographerController` - Owns overlay + panel lifecycle, manages recording state
+  - `ChoreographerViewModel` - Shared state (NOT @MainActor, AppDelegate pattern)
+  - `ChoreographerOverlayWindow` - Fullscreen transparent overlay for waypoint placement
+  - `ChoreographerOverlayView` - SwiftUI view rendering waypoints, paths, creature previews
+  - `ChoreographerPanelController` - Floating tool panel (NSPanel)
+  - `ChoreographerPanelView` - SwiftUI UI for track/creature selection, playback controls
+- **Integration**:
+  - `BehaviorTypes.swift` - Added `.scene` case
+  - `Settings.swift` - Added `sceneWeights` dictionary
+  - `BehaviorScheduler.swift` - `SchedulerTrigger` enum, `setUnifiedTriggerHandler`, scene-aware selection
+  - `AppDelegate.swift` - ScenePlayer init, choreographer menu item (Cmd+Shift+C), multi-window support
+  - `SettingsView.swift` - `.scene` case in behavior display name switch
+  - `PGScene`/`PGSceneStorage` typealiases resolve SwiftUI.Scene/SceneStorage name conflicts
+- **Tests**: 29 new tests (13 SceneTests + 16 ScriptedBehaviorTests) → **116 total**
+
 ### Current State
 - Build: ✅ Compiles cleanly
-- Tests: ✅ 87 tests passing
-- CLI: ✅ Works (`swift run pocketgris behaviors list` shows all 5 behaviors)
-- GUI: ✅ Runs, supports peek, traverse, stationary, climber, cursorReactive
+- Tests: ✅ 116 tests passing
+- CLI: ✅ Works (`swift run pocketgris behaviors list` shows all 6 behavior types)
+- GUI: ✅ Runs, supports peek, traverse, stationary, climber, cursorReactive, scene
 - Settings: ✅ Full SwiftUI settings window with live persistence
+- Choreographer: ✅ Visual scene editor with multi-track playback
 
-### All Phases Complete (0-8)
+### All Phases Complete (0-8 + Choreographer)
 
-The core feature set is complete. Potential future work:
+The core feature set and choreographer are complete. Potential future work:
 - More creatures and sprite art
 - Additional behaviors (dancing, sleeping, window-interacting)
 - Custom creature editor / drag-and-drop sprite import
@@ -171,31 +199,26 @@ The core feature set is complete. Potential future work:
 ## Continuation Prompt
 
 ```
-Continue working on pocket-gris. All 8 phases are complete.
+Continue working on pocket-gris. All 8 phases + Animation Choreographer are complete.
 
 Current state:
-- Phases 0-8 complete (foundation through polish)
-- 87 unit tests passing
-- 5 behaviors: peek, traverse, stationary, climber, cursorReactive (follow)
+- Phases 0-8 + Choreographer complete
+- 116 unit tests passing
+- 6 behavior types: peek, traverse, stationary, climber, cursorReactive (follow), scene
+- Animation Choreographer with visual waypoint editor and multi-track playback
 - Settings UI with interval/creature/behavior configuration
 - Multi-monitor support, launch at login (SMAppService)
-- Test creature "gris" with 12 animations
+- Two creatures: "gris" (pixel art, 12 animations) and "pig-gnome" (pixel art, walk + idle)
 
-Potential next steps:
-- Create additional creatures with unique personalities and animations
-- Add new behaviors (e.g., dancing, sleeping on window title bars)
-- Build a proper .app bundle with Xcode for distribution
-- Add a creature editor or drag-and-drop sprite import
-- Notification-triggered or event-triggered appearances
-- Menu bar icon that changes based on creature activity
-
-Key files:
-- Sources/PocketGrisCore/Behavior/ - All behavior implementations
-- Sources/PocketGrisCore/Services/ - CursorTracker, WindowTracker
-- Sources/PocketGrisApp/ - App delegate, settings, creature window
-- Tests/PocketGrisCoreTests/BehaviorTests.swift - All behavior tests
+Key choreographer files:
+- Sources/PocketGrisCore/Scene/ - SceneTypes, SceneStorage
+- Sources/PocketGrisCore/Behavior/ScriptedBehavior.swift - Track playback behavior
+- Sources/PocketGrisApp/ScenePlayer.swift - Multi-track coordinator
+- Sources/PocketGrisApp/Choreographer/ - 6 files (Controller, ViewModel, Overlay, Panel)
+- Tests/PocketGrisCoreTests/SceneTests.swift - 13 tests
+- Tests/PocketGrisCoreTests/ScriptedBehaviorTests.swift - 16 tests
 
 To test: swift build && swift test
 To run app: swift run PocketGrisApp
-To trigger: swift run pocketgris trigger --behavior cursorReactive --gui
+To open choreographer: Cmd+Shift+C (while app is running)
 ```

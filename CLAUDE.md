@@ -72,6 +72,10 @@ Generate test sprites: `python3 scripts/generate_sprites.py`
 
 ## Current State (Phase 8 Complete)
 
+### Creatures
+- **gris** - Test creature with 12 generated animations (peek, retreat, walk, climb, idle)
+- **pig-gnome** - Pixel art pig gnome with walk-left, walk-right, idle (supports traverse, stationary, cursorReactive)
+
 ### Implemented
 - PeekBehavior - Peek from edges, retreat on cursor proximity
 - TraverseBehavior - Walk across screen edge to edge

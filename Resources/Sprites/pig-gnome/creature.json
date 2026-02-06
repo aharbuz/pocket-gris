@@ -1,0 +1,25 @@
+{
+  "id": "pig-gnome",
+  "name": "Pig Gnome",
+  "personality": "curious",
+  "animations": [
+    {
+      "name": "walk-right",
+      "frameCount": 4,
+      "fps": 8,
+      "looping": true
+    },
+    {
+      "name": "walk-left",
+      "frameCount": 4,
+      "fps": 8,
+      "looping": true
+    },
+    {
+      "name": "idle",
+      "frameCount": 2,
+      "fps": 3,
+      "looping": true
+    }
+  ]
+}

@@ -22,7 +22,7 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 - Smooth sliding animations with easing
 - Global cursor tracking (works across all apps and spaces)
 - Window tracking (creatures can climb window edges)
-- Test creature "gris" with 12 animations (peek, retreat, walk, climb, idle)
+- Two creatures: "gris" (test, 12 animations) and "pig-gnome" (pixel art, walk + idle)
 - CLI for triggering and controlling the app
 - IPC communication between CLI and GUI
 - Configurable appearance intervals and behavior weights
@@ -77,13 +77,18 @@ Sources/
 
 Resources/
 └── Sprites/
-    └── gris/            # Test creature
+    ├── gris/            # Test creature (generated)
+    │   ├── creature.json
+    │   ├── peek-*/      # Directional peek animations
+    │   ├── retreat-*/   # Retreat animations
+    │   ├── walk-*/      # Walking animations
+    │   ├── climb/       # Climbing animation
+    │   └── idle/        # Idle animation
+    └── pig-gnome/       # Pixel art creature
         ├── creature.json
-        ├── peek-*/      # Directional peek animations
-        ├── retreat-*/   # Retreat animations
-        ├── walk-*/      # Walking animations
-        ├── climb/       # Climbing animation
-        └── idle/        # Idle animation
+        ├── walk-left/   # Walking left (4 frames)
+        ├── walk-right/  # Walking right (4 frames)
+        └── idle/        # Idle animation (2 frames)
 ```
 
 ## CLI Commands

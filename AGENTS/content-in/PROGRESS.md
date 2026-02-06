@@ -133,6 +133,22 @@
   - AppDelegate picks random screen on each trigger
 - **Performance**: Already well-optimized (event-driven cursor, display link only when visible, bounded image cache)
 
+---
+
+## Session: 2026-02-06
+
+#### Sprite Pipeline & Real Gris Animations
+- **Simplified extract_sprites.py**: Removed background removal (checkerboard/solid-color detection, flood-fill logic, `--bg`/`--bg-tolerance` args). ~260 lines removed. Bg removal now done manually on exported raw frames.
+- **Kept**: ffmpeg extraction, time range, sample-rate, cycle detection, position normalization, auto-crop/resize, creature.json recommendation
+- **Extracted real Gris animations** from `Gris traverse.mp4`:
+  - Walk cycle (0.5–4s): 10-frame cycle detected at threshold 0.7
+  - Idle (4–7s): 10-frame cycle detected
+  - Manual background removal, then processed (normalize + auto-crop) into final sprites
+- **walk-left**: 10 frames @ 508x536 — real pixel art replacing generated sprites
+- **walk-right**: 10 frames @ 508x536 — horizontally flipped walk-left
+- **idle**: 10 frames @ 496x546 — real pixel art replacing generated sprites
+- **creature.json updated**: frame counts 8→10, fps adjusted to 8 for walk-left, walk-right, idle
+
 ### Current State
 - Build: ✅ Compiles cleanly
 - Tests: ✅ 87 tests passing

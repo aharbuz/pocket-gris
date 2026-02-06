@@ -70,10 +70,20 @@ Resources/Sprites/<creature-id>/
 
 Generate test sprites: `python3 scripts/generate_sprites.py`
 
+### Sprite Pipeline (extract_sprites.py)
+Extract frames from MP4 animations with cycle detection:
+```bash
+python3 scripts/extract_sprites.py \
+    --input "video.mp4" --output output-dir/ \
+    --start 0.5 --end 4 --detect-cycle --cycle-threshold 0.7 -v
+```
+Background removal is done manually on the exported raw frames, then processed
+(position normalization, auto-crop) into final sprites.
+
 ## Current State (Phase 8 Complete)
 
 ### Creatures
-- **gris** - Test creature with 12 generated animations (peek, retreat, walk, climb, idle)
+- **gris** - Pixel art pig with red scarf; real sprites for walk-left, walk-right, idle (10 frames each); generated sprites for peek, retreat, climb
 - **pig-gnome** - Pixel art pig gnome with walk-left, walk-right, idle (supports traverse, stationary, cursorReactive)
 
 ### Implemented

@@ -53,20 +53,20 @@
     },
     {
       "name": "idle",
-      "frameCount": 8,
-      "fps": 6,
+      "frameCount": 10,
+      "fps": 8,
       "looping": true
     },
     {
       "name": "walk-left",
-      "frameCount": 8,
-      "fps": 10,
+      "frameCount": 10,
+      "fps": 8,
       "looping": true
     },
     {
       "name": "walk-right",
-      "frameCount": 8,
-      "fps": 10,
+      "frameCount": 10,
+      "fps": 8,
       "looping": true
     },
     {

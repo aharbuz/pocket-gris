@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Extract sprite frames from MP4 animations with background removal and cycle detection.
+"""Extract sprite frames from MP4 animations with cycle detection and normalization.
 
 Reusable pipeline for converting pixel art video recordings into properly
 formatted sprite sheets for Pocket-Gris creatures.
@@ -9,7 +9,6 @@ Usage:
         --input "AGENTS/content-in/animations/Gris traverse.mp4" \\
         --output Resources/Sprites/gris/walk-left \\
         --start 0.5 --end 4 \\
-        --bg checkerboard \\
         --detect-cycle \\
         --verbose
 """
@@ -66,11 +65,6 @@ def parse_args():
     p.add_argument("--output", "-o", required=True, help="Output directory for frames")
     p.add_argument("--start", type=float, default=0, help="Start time in seconds (default: 0)")
     p.add_argument("--end", type=float, default=None, help="End time in seconds (default: video end)")
-    p.add_argument(
-        "--bg", default="checkerboard",
-        help='Background type: "checkerboard" (default) or a hex color like "#00FF00"',
-    )
-    p.add_argument("--bg-tolerance", type=int, default=30, help="Pixel tolerance for background detection (default: 30)")
     p.add_argument("--detect-cycle", action="store_true", help="Detect one repeating walk cycle")
     p.add_argument("--cycle-threshold", type=float, default=0.85, help="Similarity threshold for cycle detection (default: 0.85)")
     p.add_argument("--target-size", default=None, help="Force output dimensions, e.g. 256x512")
@@ -123,258 +117,14 @@ def subsample_frames(frames, sample_rate):
     return frames[::sample_rate]
 
 
-# ---------------------------------------------------------------------------
-# Stage 2: Background Removal
-# ---------------------------------------------------------------------------
-
-def detect_checkerboard_params(img, tolerance):
-    """Auto-detect checkerboard gray levels and cell size from frame corners.
-
-    Samples all four corners where the background is most likely pure
-    checkerboard, finds the two dominant gray levels and the cell size.
-    """
-    w, h = img.size
-    pixels = img.load()
-    sample_size = min(100, w // 4, h // 4)
-
-    # Sample from all four corners to collect gray values
-    corners = [
-        (0, 0),
-        (w - sample_size, 0),
-        (0, h - sample_size),
-        (w - sample_size, h - sample_size),
-    ]
-    gray_values = []
-    for cx, cy in corners:
-        for dy in range(sample_size):
-            for dx in range(sample_size):
-                x, y = cx + dx, cy + dy
-                if 0 <= x < w and 0 <= y < h:
-                    r, g, b = pixels[x, y][:3]
-                    if max(abs(r - g), abs(r - b), abs(g - b)) < 10:
-                        gray_values.append((r + g + b) // 3)
-
-    if len(gray_values) < 100:
-        return None
-
-    # Find two dominant gray levels using histogram peaks
-    from collections import Counter
-    hist = Counter(gray_values)
-    # Group into wider bins of 15 to merge compression-noise variants
-    binned = Counter()
-    for val, count in hist.items():
-        binned[val // 15 * 15] += count
-
-    # Find two highest bins that are well separated (>30 apart)
-    peaks = sorted(binned.items(), key=lambda x: -x[1])
-    if len(peaks) < 2:
-        return None
-
-    peak1_bin = peaks[0][0]  # most common bin
-    peak2_bin = None
-    for bin_val, count in peaks[1:]:
-        if abs(bin_val - peak1_bin) > 30:
-            peak2_bin = bin_val
-            break
-    if peak2_bin is None:
-        return None
-
-    light = max(peak1_bin, peak2_bin)
-    dark = min(peak1_bin, peak2_bin)
-
-    # Refine: average all raw values within 15 of each bin center
-    light_vals = [v for v in gray_values if abs(v - light - 7) < 15]
-    dark_vals = [v for v in gray_values if abs(v - dark - 7) < 15]
-    if light_vals:
-        light = sum(light_vals) // len(light_vals)
-    if dark_vals:
-        dark = sum(dark_vals) // len(dark_vals)
-
-    if abs(light - dark) < 20:
-        return None
-
-    # Detect cell size: scan row 5 for clean transitions
-    # Use the midpoint between light and dark as transition threshold
-    mid = (light + dark) // 2
-    # Sample from the top edge (likely pure background)
-    scan_row = 5
-    transitions = []
-    prev_side = 1 if ((pixels[0, scan_row][0] + pixels[0, scan_row][1] + pixels[0, scan_row][2]) // 3) > mid else 0
-    for x in range(1, w):
-        r, g, b = pixels[x, scan_row][:3]
-        lum = (r + g + b) // 3
-        cur_side = 1 if lum > mid else 0
-        if cur_side != prev_side:
-            transitions.append(x)
-            prev_side = cur_side
-
-    cell_size = 25  # reasonable default for pixel art checkerboards
-    if len(transitions) >= 4:
-        # Use the most common gap (mode) since compression can shift individual transitions
-        gaps = [transitions[i + 1] - transitions[i] for i in range(len(transitions) - 1)]
-        gap_counts = Counter(gaps)
-        # Filter to gaps within reasonable range (10-60)
-        valid_gaps = {g: c for g, c in gap_counts.items() if 10 <= g <= 60}
-        if valid_gaps:
-            cell_size = max(valid_gaps, key=valid_gaps.get)
-        elif gaps:
-            cell_size = max(1, round(sum(gaps) / len(gaps)))
-
-    return {"light": light, "dark": dark, "cell_size": cell_size}
-
-
-def remove_checkerboard_bg(img, params, tolerance):
-    """Remove checkerboard background and return RGBA image.
-
-    Two-phase strategy:
-    1. Mark pixels as definite-foreground (colored), definite-background
-       (achromatic + in checkerboard luminance range), or ambiguous.
-    2. Flood-fill from frame corners through background and ambiguous pixels
-       to find connected background. Ambiguous pixels touching the sprite
-       but not connected to the background edge are kept as foreground.
-    """
-    w, h = img.size
-    pixels = img.load()
-    light = params["light"]
-    dark = params["dark"]
-
-    # Saturation threshold: max channel spread to consider "achromatic"
-    # H.264 can introduce chroma noise of ~10 on gray pixels
-    sat_threshold = max(15, tolerance // 2)
-
-    # Background luminance range (extended for cell boundary compression)
-    bg_lum_low = dark - tolerance
-    bg_lum_high = light + tolerance // 2
-
-    # Classification: 0=definite bg, 1=definite fg, 2=ambiguous (achromatic but outside bg range)
-    DEFINITE_BG = 0
-    DEFINITE_FG = 1
-    AMBIGUOUS = 2
-
-    classify = [[0] * w for _ in range(h)]
-    for y in range(h):
-        for x in range(w):
-            r, g, b = pixels[x, y][:3]
-            max_channel_diff = max(abs(r - g), abs(r - b), abs(g - b))
-
-            if max_channel_diff > sat_threshold:
-                # Colored pixel — definitely foreground
-                classify[y][x] = DEFINITE_FG
-            else:
-                lum = (r + g + b) // 3
-                if bg_lum_low <= lum <= bg_lum_high:
-                    classify[y][x] = DEFINITE_BG
-                else:
-                    # Achromatic but outside bg luminance range (dark outlines, shadows)
-                    classify[y][x] = AMBIGUOUS
-
-    # Flood-fill from all four edges to mark connected background.
-    # Any ambiguous pixel reachable from the edge without crossing
-    # definite-foreground is background.
-    visited = [[False] * w for _ in range(h)]
-    is_bg = [[False] * w for _ in range(h)]
-
-    # Seed from all border pixels that aren't definite foreground
-    from collections import deque
-    queue = deque()
-    for y in range(h):
-        for x in [0, w - 1]:
-            if classify[y][x] != DEFINITE_FG:
-                queue.append((x, y))
-                visited[y][x] = True
-                is_bg[y][x] = True
-    for x in range(1, w - 1):
-        for y in [0, h - 1]:
-            if classify[y][x] != DEFINITE_FG and not visited[y][x]:
-                queue.append((x, y))
-                visited[y][x] = True
-                is_bg[y][x] = True
-
-    while queue:
-        x, y = queue.popleft()
-        for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
-            nx, ny = x + dx, y + dy
-            if 0 <= nx < w and 0 <= ny < h and not visited[ny][nx]:
-                if classify[ny][nx] != DEFINITE_FG:
-                    visited[ny][nx] = True
-                    is_bg[ny][nx] = True
-                    queue.append((nx, ny))
-
-    # Build result
-    result = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    result_pixels = result.load()
-    for y in range(h):
-        for x in range(w):
-            if is_bg[y][x]:
-                result_pixels[x, y] = (0, 0, 0, 0)
-            else:
-                r, g, b = pixels[x, y][:3]
-                result_pixels[x, y] = (r, g, b, 255)
-
-    return result
-
-
-def remove_solid_bg(img, bg_color, tolerance):
-    """Remove solid color background and return RGBA image."""
-    w, h = img.size
-    pixels = img.load()
-    br, bg, bb = bg_color
-
-    result = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    result_pixels = result.load()
-
-    for y in range(h):
-        for x in range(w):
-            r, g, b = pixels[x, y][:3]
-            dist = math.sqrt((r - br) ** 2 + (g - bg) ** 2 + (b - bb) ** 2)
-            if dist < tolerance:
-                result_pixels[x, y] = (0, 0, 0, 0)
-            else:
-                result_pixels[x, y] = (r, g, b, 255)
-
-    return result
-
-
-def parse_hex_color(color_str):
-    """Parse '#RRGGBB' to (r, g, b) tuple."""
-    color_str = color_str.lstrip("#")
-    if len(color_str) != 6:
-        print(f"[error] Invalid color: #{color_str}", file=sys.stderr)
-        sys.exit(1)
-    return tuple(int(color_str[i:i + 2], 16) for i in (0, 2, 4))
-
-
-def remove_background(frames, bg_mode, tolerance, verbose=False):
-    """Remove background from all frames. Returns list of RGBA PIL Images."""
-    log("[stage 2] Removing background...", verbose=verbose)
-
-    # Load first frame to detect params
-    first_img = Image.open(frames[0]).convert("RGB")
-
-    if bg_mode == "checkerboard":
-        params = detect_checkerboard_params(first_img, tolerance)
-        if params is None:
-            print("[warn] Could not detect checkerboard pattern; trying with defaults")
-            params = {"light": 204, "dark": 153, "cell_size": 8}
-        log(f"  Checkerboard: light={params['light']}, dark={params['dark']}, cell={params['cell_size']}px",
-            verbose_only=True, verbose=verbose)
-    else:
-        bg_color = parse_hex_color(bg_mode)
-
-    results = []
-    for i, frame_path in enumerate(frames):
-        img = Image.open(frame_path).convert("RGB")
-        if bg_mode == "checkerboard":
-            rgba = remove_checkerboard_bg(img, params, tolerance)
-        else:
-            rgba = remove_solid_bg(img, bg_color, tolerance)
-        results.append(rgba)
-
-        if verbose and (i + 1) % 20 == 0:
-            log(f"  Processed {i + 1}/{len(frames)} frames", verbose=verbose)
-
-    log(f"  Background removed from {len(results)} frames", verbose=verbose)
-    return results
+def load_frames(frame_paths, verbose=False):
+    """Load extracted frame files as RGBA PIL Images."""
+    log("[stage 2] Loading frames...", verbose=verbose)
+    images = []
+    for p in frame_paths:
+        images.append(Image.open(p).convert("RGBA"))
+    log(f"  Loaded {len(images)} frames", verbose=verbose)
+    return images
 
 
 # ---------------------------------------------------------------------------
@@ -555,7 +305,6 @@ def detect_cycle(frames, threshold, verbose=False):
         log(f"  Found cycle at frame {cycle_len} (similarity={best_sim:.3f})", verbose=verbose)
     else:
         # Method 2: Auto-correlation of consecutive-frame differences
-        # Compute difference signal
         log("  Direct comparison didn't find cycle; trying auto-correlation...",
             verbose_only=True, verbose=verbose)
         diff_signal = []
@@ -689,14 +438,8 @@ def save_frames(frames, output_dir, source_fps, cycle_len, dry_run=False, verbos
 
     w, h = frames[0].size
 
-    # Compute recommended FPS
-    # If cycle detected, the output FPS should maintain the original timing
-    rec_fps = source_fps
-    if cycle_len and cycle_len > 0:
-        # Cycle was cycle_len frames at source_fps → preserve that timing
-        rec_fps = source_fps
-
     # Suggest a reasonable FPS for sprite animation (typically 8-12)
+    rec_fps = source_fps
     if rec_fps > 12:
         suggested_fps = max(8, rec_fps // 3)
     else:
@@ -752,7 +495,6 @@ def main():
     log(f"Input: {input_path} ({source_fps} fps)", verbose=args.verbose)
     log(f"Output: {args.output}", verbose=args.verbose)
     log(f"Time range: {args.start}s - {args.end if args.end else 'end'}s", verbose=args.verbose)
-    log(f"Background mode: {args.bg} (tolerance={args.bg_tolerance})", verbose=args.verbose)
 
     # Stage 1: Extract frames
     temp_dir = tempfile.mkdtemp(prefix="pocket-gris-sprites-")
@@ -769,8 +511,8 @@ def main():
                 verbose=args.verbose)
             source_fps = source_fps // args.sample_rate
 
-        # Stage 2: Remove background
-        rgba_frames = remove_background(raw_frames, args.bg, args.bg_tolerance, verbose=args.verbose)
+        # Stage 2: Load frames
+        rgba_frames = load_frames(raw_frames, verbose=args.verbose)
 
         # Stage 3: Track positions
         positions = track_positions(rgba_frames, verbose=args.verbose)

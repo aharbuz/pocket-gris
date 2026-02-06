@@ -25,3 +25,6 @@ DerivedData/
 
 # IPC temp files
 /tmp/pocket-gris-*
+
+# Python venv
+scripts/.venv/

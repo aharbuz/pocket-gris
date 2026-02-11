@@ -57,9 +57,31 @@ final class ChoreographerViewModel: ObservableObject {
         self.currentScene = scene ?? PGScene()
         self.spriteLoader = spriteLoader
 
-        if let first = spriteLoader.allCreatures().first {
-            self.activeCreatureId = first.id
-            self.activeAnimation = first.animations.keys.sorted().first
+        // Determine default creature: prefer "gris", fall back to first available
+        let allCreatures = spriteLoader.allCreatures()
+        let defaultCreature = allCreatures.first(where: { $0.id == "gris" }) ?? allCreatures.first
+
+        if let creature = defaultCreature {
+            // Determine default animation: prefer "walk-left", fall back to first available
+            let sortedAnimations = creature.animations.keys.sorted()
+            let defaultAnimation = sortedAnimations.contains("walk-left") ? "walk-left" : sortedAnimations.first
+
+            self.activeCreatureId = creature.id
+            self.activeAnimation = defaultAnimation
+            self.activeSnapMode = .none
+
+            // If no scene was provided, create a default track so user can start placing waypoints immediately
+            if scene == nil {
+                let track = SceneTrack(
+                    creatureId: creature.id,
+                    waypoints: [],
+                    segments: [],
+                    startDelay: 0
+                )
+                self.currentScene.tracks.append(track)
+                self.selectedTrackIndex = 0
+                self.isPlacing = true
+            }
         }
     }
 

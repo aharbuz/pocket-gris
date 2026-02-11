@@ -9,20 +9,23 @@ typealias PGSceneStorage = PocketGrisCore.SceneStorage
 /// State for the choreographer editor
 final class ChoreographerViewModel: ObservableObject {
     @Published var currentScene: PGScene
-    @Published var selectedTrackIndex: Int?
+    @Published var selectedTrackIndex: Int? {
+        didSet {
+            // Reset expanded segments when track changes
+            if selectedTrackIndex != oldValue {
+                expandedSegmentIndices.removeAll()
+            }
+        }
+    }
     @Published var selectedSegmentIndex: Int?
-    @Published var activeCreatureId: String? {
-        didSet { if isPlacing && !suppressPreviewRestart { startPreview() } }
-    }
-    @Published var activeAnimation: String? {
-        didSet { if isPlacing && !suppressPreviewRestart { startPreview() } }
-    }
-    @Published var activeSnapMode: SnapMode = .none
     @Published var isPlacing: Bool = false {
         didSet {
             if isPlacing { startPreview() } else { stopPreview() }
         }
     }
+
+    /// Tracks which segments are expanded per track (key: track index, value: set of segment indices)
+    @Published var expandedSegmentIndices: [Int: Set<Int>] = [:]
 
     // Preview state
     @Published var previewPosition: CGPoint = .zero
@@ -38,11 +41,34 @@ final class ChoreographerViewModel: ObservableObject {
     private let cursorSmoothingSpeed: CGFloat = 15.0  // Higher = faster catch-up
     private var undoStack: [PGScene] = []
     private let maxUndoLevels = 20
-    private var suppressPreviewRestart = false
     var onSave: ((PGScene) -> Void)?
     var onClose: (() -> Void)?
 
     var canUndo: Bool { !undoStack.isEmpty }
+
+    /// Derive activeCreatureId from selected track
+    var activeCreatureId: String? {
+        guard let idx = selectedTrackIndex, idx < currentScene.tracks.count else { return nil }
+        return currentScene.tracks[idx].creatureId
+    }
+
+    /// Derive activeAnimation from selected track's last segment, or first available
+    var activeAnimation: String? {
+        guard let creatureId = activeCreatureId else { return nil }
+        guard let idx = selectedTrackIndex, idx < currentScene.tracks.count else { return nil }
+        let track = currentScene.tracks[idx]
+        if let lastSegment = track.segments.last {
+            return lastSegment.animationName
+        }
+        // Fall back to first available animation
+        return spriteLoader.creature(id: creatureId)?.animations.keys.sorted().first
+    }
+
+    /// Derive activeSnapMode from selected track's last segment
+    var activeSnapMode: SnapMode {
+        guard let idx = selectedTrackIndex, idx < currentScene.tracks.count else { return .none }
+        return currentScene.tracks[idx].segments.last?.snapMode ?? .none
+    }
 
     /// Whether the scene can be saved (has at least one waypoint in any track)
     var canSave: Bool {
@@ -72,14 +98,6 @@ final class ChoreographerViewModel: ObservableObject {
         let defaultCreature = allCreatures.first(where: { $0.id == "gris" }) ?? allCreatures.first
 
         if let creature = defaultCreature {
-            // Determine default animation: prefer "walk-left", fall back to first available
-            let sortedAnimations = creature.animations.keys.sorted()
-            let defaultAnimation = sortedAnimations.contains("walk-left") ? "walk-left" : sortedAnimations.first
-
-            self.activeCreatureId = creature.id
-            self.activeAnimation = defaultAnimation
-            self.activeSnapMode = .none
-
             // If no scene was provided, create a default track so user can start placing waypoints immediately
             if scene == nil {
                 let track = SceneTrack(
@@ -115,13 +133,7 @@ final class ChoreographerViewModel: ObservableObject {
                 selectedSegmentIndex = nil
                 isPlacing = false
             } else {
-                // Re-sync pickers from the restored track
-                let track = currentScene.tracks[idx]
-                suppressPreviewRestart = true
-                activeCreatureId = track.creatureId
-                activeAnimation = track.segments.first?.animationName
-                    ?? spriteLoader.creature(id: track.creatureId)?.animations.keys.sorted().first
-                suppressPreviewRestart = false
+                // Preview is derived from selected track, restart if placing
                 if isPlacing { startPreview() }
             }
         }
@@ -146,22 +158,13 @@ final class ChoreographerViewModel: ObservableObject {
         return true
     }
 
-    /// Changes the active creature, updating the selected track if one exists.
+    /// Changes the creature for the selected track
     func changeCreature(to newCreatureId: String) {
         guard newCreatureId != activeCreatureId else { return }
+        guard let idx = selectedTrackIndex, idx < currentScene.tracks.count else { return }
 
         let newCreature = spriteLoader.creature(id: newCreatureId)
         let firstAnim = newCreature?.animations.keys.sorted().first
-
-        guard let idx = selectedTrackIndex, idx < currentScene.tracks.count else {
-            // No track selected — just update pickers for next addTrack
-            suppressPreviewRestart = true
-            activeCreatureId = newCreatureId
-            activeAnimation = firstAnim
-            suppressPreviewRestart = false
-            if isPlacing { startPreview() }
-            return
-        }
 
         pushUndo()
 
@@ -176,11 +179,6 @@ final class ChoreographerViewModel: ObservableObject {
             }
         }
 
-        // Update pickers (suppressed to avoid double preview restart)
-        suppressPreviewRestart = true
-        activeCreatureId = newCreatureId
-        activeAnimation = firstAnim
-        suppressPreviewRestart = false
         if isPlacing { startPreview() }
     }
 
@@ -221,8 +219,8 @@ final class ChoreographerViewModel: ObservableObject {
         guard targetIndex >= 0, targetIndex < currentScene.tracks.count else { return }
         selectedTrackIndex = targetIndex
         selectedSegmentIndex = nil
-        let track = currentScene.tracks[targetIndex]
-        activeCreatureId = track.creatureId
+        // Preview will use the new track's creature/animation automatically
+        if isPlacing { startPreview() }
     }
 
     // MARK: - Waypoint Management
@@ -264,6 +262,7 @@ final class ChoreographerViewModel: ObservableObject {
 
     /// Add a new waypoint (and segment) extending from the last waypoint
     /// The new waypoint is offset from the last one for visibility
+    /// Collapses all existing segments and expands the new one
     func extendTrack() {
         guard let trackIdx = selectedTrackIndex, trackIdx < currentScene.tracks.count else { return }
         let track = currentScene.tracks[trackIdx]
@@ -274,6 +273,12 @@ final class ChoreographerViewModel: ObservableObject {
         let newPosition = Position(x: lastWaypoint.x + offset, y: lastWaypoint.y)
 
         addWaypoint(at: newPosition)
+
+        // Collapse all segments and expand the new one
+        let newSegmentIndex = currentScene.tracks[trackIdx].segments.count - 1
+        if newSegmentIndex >= 0 {
+            expandedSegmentIndices[trackIdx] = [newSegmentIndex]
+        }
     }
 
     /// Check if the selected track can be extended
@@ -377,6 +382,32 @@ final class ChoreographerViewModel: ObservableObject {
     func canMoveSegmentDown(trackIndex: Int, segmentIndex: Int) -> Bool {
         guard trackIndex < currentScene.tracks.count else { return false }
         return segmentIndex < currentScene.tracks[trackIndex].segments.count - 1
+    }
+
+    // MARK: - Expanded Segment Management
+
+    func isSegmentExpanded(trackIndex: Int, segmentIndex: Int) -> Bool {
+        expandedSegmentIndices[trackIndex]?.contains(segmentIndex) ?? false
+    }
+
+    func toggleSegmentExpanded(trackIndex: Int, segmentIndex: Int) {
+        var expanded = expandedSegmentIndices[trackIndex] ?? []
+        if expanded.contains(segmentIndex) {
+            expanded.remove(segmentIndex)
+        } else {
+            expanded.insert(segmentIndex)
+        }
+        expandedSegmentIndices[trackIndex] = expanded
+    }
+
+    func setSegmentExpanded(trackIndex: Int, segmentIndex: Int, expanded: Bool) {
+        var set = expandedSegmentIndices[trackIndex] ?? []
+        if expanded {
+            set.insert(segmentIndex)
+        } else {
+            set.remove(segmentIndex)
+        }
+        expandedSegmentIndices[trackIndex] = set
     }
 
     // MARK: - Scene Actions

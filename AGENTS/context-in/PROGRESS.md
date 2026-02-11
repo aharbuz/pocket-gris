@@ -246,6 +246,61 @@ Completed 5 REQs for UI improvements:
 - REQ-013: Segment selection with visual highlighting (per-segment path thickness, endpoint glow, click to deselect) → d5f31d6
 - REQ-014: Segment opacity gradient (100% → 30% fade for temporal order) → 3e9f28e
 
+---
+
+## Session: 2026-02-12
+
+#### Choreographer Panel UI Rework
+Restructured the panel to move creature/snap controls from top-level into the track/segment hierarchy:
+
+**ViewModel Changes (ChoreographerViewModel.swift):**
+- Removed stored `activeCreatureId`, `activeAnimation`, `activeSnapMode` properties
+- Made `activeCreatureId` a computed property deriving from selected track
+- Made `activeAnimation` derive from selected track's last segment or first available
+- Made `activeSnapMode` derive from selected track's last segment
+- Added `expandedSegmentIndices: [Int: Set<Int>]` for per-track expanded segment tracking
+- Added helper methods: `isSegmentExpanded`, `toggleSegmentExpanded`, `setSegmentExpanded`
+- Updated `extendTrack()` to collapse all segments and expand the new one
+- Removed `suppressPreviewRestart` flag (no longer needed with derived state)
+
+**Panel View Changes (ChoreographerPanelView.swift):**
+- Removed global "Creature" dropdown section
+- Removed global "Snap Mode" picker section
+- Removed separate "Path" section header
+- Renamed "Tracks" to "Creatures"
+- Added creature picker dropdown inside each track header
+- Track selection expands to show delay slider + nested segment list
+- Unselected tracks show summary "(N segments)"
+- Segment collapsed state now shows: chevron + animation + snap mode + duration + reorder buttons (↑↓)
+- Segment expanded state shows: animation picker, snap mode picker, duration slider, delete button
+- "Add Segment" button at end of segment list
+- Collapse-on-add: adding segment collapses siblings and expands new one
+
+**New Panel Layout:**
+```
+┌─────────────────────────────────────┐
+│ [Scene Name]                        │
+├─────────────────────────────────────┤
+│ Creatures                       [+] │
+│                                     │
+│ 🔵 [gris ▼]                         │  ← Track header with creature picker
+│   Delay: [====] 0.0s                │
+│   ▸ walk-right • none • 2.0s  [↑↓]  │  ← Collapsed segment
+│   ▾ walk-left • none • 1.5s   [↑↓]  │  ← Expanded segment header
+│     Animation: [walk-left ▼]        │
+│     Snap Mode: [none ▼]             │
+│     Duration:  [====] 1.5s          │
+│     [Delete Segment]                │
+│   [+ Add Segment]                   │
+│                                     │
+│ 🟢 [pig-gnome ▼]                    │  ← Unselected track
+│   (2 segments)                      │
+├─────────────────────────────────────┤
+│ [Preview] [Save] [Load] [New]       │
+│ [Close]                             │
+└─────────────────────────────────────┘
+```
+
 ### All Phases Complete (0-8 + Choreographer + UI Polish)
 
 The core feature set, choreographer, and UI polish are complete. Potential future work:

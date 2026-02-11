@@ -174,7 +174,6 @@ struct WaypointDot: View {
     var onDrag: ((Position) -> Void)?
 
     @State private var isDragging = false
-    @State private var dragOffset: CGSize = .zero
 
     var body: some View {
         ZStack {
@@ -209,10 +208,7 @@ struct WaypointDot: View {
                     .offset(y: 20)
             }
         }
-        .position(
-            x: position.x + dragOffset.width,
-            y: position.y + dragOffset.height
-        )
+        .position(x: position.x, y: position.y)
         .gesture(
             DragGesture(minimumDistance: 5)
                 .onChanged { value in
@@ -220,7 +216,6 @@ struct WaypointDot: View {
                         isDragging = true
                         onDragStart?()
                     }
-                    dragOffset = value.translation
                     let newPos = Position(
                         x: position.x + value.translation.width,
                         y: position.y + value.translation.height
@@ -229,7 +224,6 @@ struct WaypointDot: View {
                 }
                 .onEnded { _ in
                     isDragging = false
-                    dragOffset = .zero
                 }
         )
         .onTapGesture {

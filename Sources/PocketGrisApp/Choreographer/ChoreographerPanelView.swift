@@ -417,8 +417,6 @@ struct ChoreographerPanelView: View {
         case .windowBottom: return "Window Bottom"
         case .windowLeft: return "Window Left"
         case .windowRight: return "Window Right"
-        case .onTopOfWindow: return "On Top of Window"
-        case .underneathWindow: return "Underneath Window"
         }
     }
 

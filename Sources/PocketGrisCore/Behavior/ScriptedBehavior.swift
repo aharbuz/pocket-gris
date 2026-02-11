@@ -204,18 +204,6 @@ public struct ScriptedBehavior: Behavior {
                 return Position(x: window.maxX, y: position.y)
             }
             return position
-
-        case .onTopOfWindow:
-            if let window = nearestWindow(to: position, context: context) {
-                return Position(x: position.x, y: window.minY)
-            }
-            return position
-
-        case .underneathWindow:
-            if let window = nearestWindow(to: position, context: context) {
-                return Position(x: position.x, y: window.maxY)
-            }
-            return position
         }
     }
 

@@ -1,5 +1,4 @@
 import AppKit
-import Combine
 import SwiftUI
 import PocketGrisCore
 
@@ -7,7 +6,6 @@ import PocketGrisCore
 final class ChoreographerOverlayWindow: NSWindow {
 
     var viewModel: ChoreographerViewModel?
-    private var placingCancellable: AnyCancellable?
 
     init(screen: NSScreen? = nil) {
         let targetScreen = screen ?? NSScreen.main
@@ -25,18 +23,14 @@ final class ChoreographerOverlayWindow: NSWindow {
         self.hasShadow = false
         self.level = .floating
         self.collectionBehavior = [.canJoinAllSpaces, .stationary]
-        self.ignoresMouseEvents = true
+        // Always accept mouse events so waypoints can be edited
+        self.ignoresMouseEvents = false
         self.isReleasedWhenClosed = false
         self.acceptsMouseMovedEvents = true
     }
 
     func setup(viewModel: ChoreographerViewModel) {
         self.viewModel = viewModel
-
-        // Toggle mouse event handling based on placement mode
-        placingCancellable = viewModel.$isPlacing.sink { [weak self] isPlacing in
-            self?.ignoresMouseEvents = !isPlacing
-        }
 
         let overlayView = ChoreographerOverlayView(viewModel: viewModel)
         let hostingView = NSHostingView(rootView: overlayView)
@@ -46,8 +40,6 @@ final class ChoreographerOverlayWindow: NSWindow {
     }
 
     func teardown() {
-        placingCancellable?.cancel()
-        placingCancellable = nil
         contentView = nil
         viewModel = nil
         orderOut(nil)

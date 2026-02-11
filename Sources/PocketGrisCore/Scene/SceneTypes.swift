@@ -9,8 +9,6 @@ public enum SnapMode: String, CaseIterable, Codable, Equatable, Sendable {
     case windowBottom
     case windowLeft
     case windowRight
-    case onTopOfWindow
-    case underneathWindow
 }
 
 /// A single segment connecting two adjacent waypoints

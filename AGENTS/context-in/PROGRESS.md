@@ -229,6 +229,11 @@ Session continuing from above.
 - **Segment creation UX**: Added "+" button to Segments header that extends the track by adding a new waypoint/segment. Animation picker now shows "(editing segment)" hint when a segment is selected, and changing animation updates both the active animation AND the selected segment's animation.
 - **Waypoint drag-to-move**: Waypoints can now be dragged to reposition them. Drag gesture captures undo state at start, updates position in real-time during drag.
 
+#### Choreographer Cleanup (UR-003)
+- **Removed duplicate snap modes**: Consolidated `onTopOfWindow`/`windowTop` and `underneathWindow`/`windowBottom` — kept the consistent `windowTop/windowBottom` naming to match `windowLeft/windowRight`
+- **Fixed waypoint drag double-offset bug**: WaypointDot was applying `dragOffset` visually while also updating the position via `onDrag` callback, causing waypoints to jump twice as far as expected. Removed the visual offset; position now updates solely through the callback.
+- **Fixed waypoint editing in previous segments**: Overlay window's `ignoresMouseEvents` was toggled based on `isPlacing`, preventing clicks on waypoints when not actively placing. Now always accepts mouse events while choreographer is open.
+
 ### All Phases Complete (0-8 + Choreographer)
 
 The core feature set and choreographer are complete. Potential future work:

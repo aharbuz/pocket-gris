@@ -117,17 +117,20 @@ struct TrackPathView: View {
         ZStack {
             // Draw path lines between waypoints (each segment drawn separately)
             if track.waypoints.count >= 2 {
-                ForEach(0..<track.waypoints.count - 1, id: \.self) { segmentIndex in
+                let segmentCount = track.waypoints.count - 1
+                ForEach(0..<segmentCount, id: \.self) { segmentIndex in
                     let start = track.waypoints[segmentIndex]
                     let end = track.waypoints[segmentIndex + 1]
                     let isSegmentSelected = selectedSegmentIndex == segmentIndex
+                    // Opacity decreases from 1.0 to 0.3 to show temporal order
+                    let opacity = segmentCount > 1 ? 1.0 - (Double(segmentIndex) / Double(segmentCount - 1)) * 0.7 : 1.0
 
                     Path { path in
                         path.move(to: CGPoint(x: start.x, y: start.y))
                         path.addLine(to: CGPoint(x: end.x, y: end.y))
                     }
                     .stroke(
-                        color,
+                        color.opacity(opacity),
                         style: StrokeStyle(
                             lineWidth: isSegmentSelected ? 4.0 : (isSelected ? 2.5 : 1.5),
                             dash: [8, 4]

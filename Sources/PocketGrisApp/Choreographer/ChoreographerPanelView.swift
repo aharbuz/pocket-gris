@@ -10,6 +10,9 @@ struct ChoreographerPanelView: View {
     let windowTracker: WindowTracker?
     let cursorTracker: CursorTracker?
 
+    // Track which path steps are expanded (key: segmentIndex)
+    @State private var expandedSteps: Set<Int> = []
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
@@ -33,8 +36,8 @@ struct ChoreographerPanelView: View {
 
                 Divider()
 
-                // Segment List (for selected track)
-                segmentListSection
+                // Path steps (for selected track)
+                pathStepsSection
 
                 Divider()
 
@@ -71,15 +74,8 @@ struct ChoreographerPanelView: View {
 
             if let creatureId = viewModel.activeCreatureId,
                let creature = viewModel.creatures.first(where: { $0.id == creatureId }) {
-                HStack {
-                    Text("Animation")
-                        .font(.subheadline)
-                    if viewModel.selectedSegmentIndex != nil {
-                        Text("(editing segment)")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
+                Text("Animation")
+                    .font(.subheadline)
                 Picker("Animation", selection: animationBinding) {
                     ForEach(creature.animations.keys.sorted(), id: \.self) { name in
                         Text(name).tag(name as String?)
@@ -175,11 +171,13 @@ struct ChoreographerPanelView: View {
         }
     }
 
-    private var segmentListSection: some View {
+    private var pathStepsSection: some View {
         VStack(alignment: .leading, spacing: 4) {
+            // Add step button (no header, steps are nested under track)
             HStack {
-                Text("Segments")
-                    .font(.headline)
+                Text("Path")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
                 Spacer()
                 Button(action: {
                     viewModel.extendTrack()
@@ -187,7 +185,7 @@ struct ChoreographerPanelView: View {
                     Image(systemName: "plus")
                 }
                 .disabled(!viewModel.canExtendTrack)
-                .help("Add waypoint and segment")
+                .help("Add waypoint")
             }
 
             if let trackIdx = viewModel.selectedTrackIndex,
@@ -195,95 +193,12 @@ struct ChoreographerPanelView: View {
                 let track = viewModel.currentScene.tracks[trackIdx]
 
                 if track.segments.isEmpty {
-                    Text("Place at least 2 waypoints to create a segment.")
+                    Text("Place at least 2 waypoints to create a path.")
                         .foregroundColor(.secondary)
                         .font(.caption)
-                }
-
-                ForEach(Array(track.segments.enumerated()), id: \.offset) { segIdx, segment in
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text("\(segIdx + 1).")
-                                .font(.system(size: 11, weight: .bold))
-                            Text(segment.animationName)
-                                .font(.system(size: 12))
-                            Spacer()
-
-                            // Reorder buttons
-                            Button(action: {
-                                viewModel.moveSegmentUp(trackIndex: trackIdx, segmentIndex: segIdx)
-                            }) {
-                                Image(systemName: "chevron.up")
-                                    .font(.system(size: 10))
-                            }
-                            .buttonStyle(.borderless)
-                            .disabled(!viewModel.canMoveSegmentUp(segmentIndex: segIdx))
-
-                            Button(action: {
-                                viewModel.moveSegmentDown(trackIndex: trackIdx, segmentIndex: segIdx)
-                            }) {
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 10))
-                            }
-                            .buttonStyle(.borderless)
-                            .disabled(!viewModel.canMoveSegmentDown(trackIndex: trackIdx, segmentIndex: segIdx))
-
-                            Text(String(format: "%.1fs", segment.duration))
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                        }
-
-                        HStack {
-                            Slider(
-                                value: segmentDurationBinding(trackIndex: trackIdx, segmentIndex: segIdx),
-                                in: 0.5...10.0,
-                                step: 0.5
-                            )
-                            .frame(height: 16)
-
-                            if segment.snapMode != .none {
-                                Text(snapModeLabel(segment.snapMode))
-                                    .font(.system(size: 9))
-                                    .padding(.horizontal, 4)
-                                    .padding(.vertical, 2)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .fill(Color.accentColor.opacity(0.2))
-                                    )
-                            }
-                        }
-                    }
-                    .padding(.vertical, 2)
-                    .padding(.horizontal, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(viewModel.selectedSegmentIndex == segIdx ? Color.accentColor.opacity(0.1) : Color.clear)
-                    )
-                    .onTapGesture {
-                        viewModel.selectedSegmentIndex = segIdx
-                    }
-                    .contextMenu {
-                        Button(action: {
-                            viewModel.moveSegmentUp(trackIndex: trackIdx, segmentIndex: segIdx)
-                        }) {
-                            Label("Move Up", systemImage: "chevron.up")
-                        }
-                        .disabled(!viewModel.canMoveSegmentUp(segmentIndex: segIdx))
-
-                        Button(action: {
-                            viewModel.moveSegmentDown(trackIndex: trackIdx, segmentIndex: segIdx)
-                        }) {
-                            Label("Move Down", systemImage: "chevron.down")
-                        }
-                        .disabled(!viewModel.canMoveSegmentDown(trackIndex: trackIdx, segmentIndex: segIdx))
-
-                        Divider()
-
-                        Button(role: .destructive, action: {
-                            viewModel.deleteSegment(trackIndex: trackIdx, segmentIndex: segIdx)
-                        }) {
-                            Label("Delete Segment", systemImage: "trash")
-                        }
+                } else {
+                    ForEach(Array(track.segments.enumerated()), id: \.offset) { segIdx, segment in
+                        pathStepRow(trackIndex: trackIdx, segmentIndex: segIdx, segment: segment)
                     }
                 }
             } else {
@@ -292,6 +207,190 @@ struct ChoreographerPanelView: View {
                     .font(.caption)
             }
         }
+    }
+
+    @ViewBuilder
+    private func pathStepRow(trackIndex: Int, segmentIndex: Int, segment: SceneSegment) -> some View {
+        let isExpanded = expandedSteps.contains(segmentIndex)
+        let isSelected = viewModel.selectedSegmentIndex == segmentIndex
+
+        VStack(alignment: .leading, spacing: 4) {
+            // Collapsed summary row
+            HStack(spacing: 4) {
+                // Disclosure triangle
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.15)) {
+                        if isExpanded {
+                            expandedSteps.remove(segmentIndex)
+                        } else {
+                            expandedSteps.insert(segmentIndex)
+                        }
+                    }
+                }) {
+                    Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .frame(width: 12, height: 12)
+                }
+                .buttonStyle(.plain)
+
+                // Animation name with arrow
+                Text(segment.animationName)
+                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                Text("→")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+
+                // Snap and duration info
+                Text("(\(snapModeShortLabel(segment.snapMode)), \(String(format: "%.1fs", segment.duration)))")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+
+                Spacer()
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
+                viewModel.selectedSegmentIndex = segmentIndex
+            }
+
+            // Expanded detail view
+            if isExpanded {
+                VStack(alignment: .leading, spacing: 6) {
+                    // Animation picker
+                    if let creatureId = viewModel.activeCreatureId,
+                       let creature = viewModel.creatures.first(where: { $0.id == creatureId }) {
+                        Picker("Animation", selection: stepAnimationBinding(trackIndex: trackIndex, segmentIndex: segmentIndex)) {
+                            ForEach(creature.animations.keys.sorted(), id: \.self) { name in
+                                Text(name).tag(name)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(maxWidth: .infinity)
+                    }
+
+                    // Snap mode picker
+                    Picker("Snap", selection: stepSnapModeBinding(trackIndex: trackIndex, segmentIndex: segmentIndex)) {
+                        ForEach(SnapMode.allCases, id: \.self) { mode in
+                            Text(snapModeLabel(mode)).tag(mode)
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity)
+
+                    // Duration slider
+                    HStack {
+                        Text("Duration:")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                        Slider(
+                            value: segmentDurationBinding(trackIndex: trackIndex, segmentIndex: segmentIndex),
+                            in: 0.5...10.0,
+                            step: 0.5
+                        )
+                        Text(String(format: "%.1fs", segment.duration))
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
+                            .frame(width: 32, alignment: .trailing)
+                    }
+
+                    // Reorder buttons
+                    HStack {
+                        Button(action: {
+                            viewModel.moveSegmentUp(trackIndex: trackIndex, segmentIndex: segmentIndex)
+                        }) {
+                            Label("Move Up", systemImage: "chevron.up")
+                                .font(.system(size: 11))
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(!viewModel.canMoveSegmentUp(segmentIndex: segmentIndex))
+
+                        Button(action: {
+                            viewModel.moveSegmentDown(trackIndex: trackIndex, segmentIndex: segmentIndex)
+                        }) {
+                            Label("Move Down", systemImage: "chevron.down")
+                                .font(.system(size: 11))
+                        }
+                        .buttonStyle(.borderless)
+                        .disabled(!viewModel.canMoveSegmentDown(trackIndex: trackIndex, segmentIndex: segmentIndex))
+
+                        Spacer()
+                    }
+                }
+                .padding(.leading, 16)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
+        )
+        .contextMenu {
+            Button(action: {
+                viewModel.moveSegmentUp(trackIndex: trackIndex, segmentIndex: segmentIndex)
+            }) {
+                Label("Move Up", systemImage: "chevron.up")
+            }
+            .disabled(!viewModel.canMoveSegmentUp(segmentIndex: segmentIndex))
+
+            Button(action: {
+                viewModel.moveSegmentDown(trackIndex: trackIndex, segmentIndex: segmentIndex)
+            }) {
+                Label("Move Down", systemImage: "chevron.down")
+            }
+            .disabled(!viewModel.canMoveSegmentDown(trackIndex: trackIndex, segmentIndex: segmentIndex))
+
+            Divider()
+
+            Button(role: .destructive, action: {
+                viewModel.deleteSegment(trackIndex: trackIndex, segmentIndex: segmentIndex)
+            }) {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+    }
+
+    private func snapModeShortLabel(_ mode: SnapMode) -> String {
+        switch mode {
+        case .none: return "none"
+        case .screenBottom: return "btm"
+        case .screenTop: return "top"
+        case .windowTop: return "win-top"
+        case .windowBottom: return "win-btm"
+        case .windowLeft: return "win-L"
+        case .windowRight: return "win-R"
+        }
+    }
+
+    private func stepAnimationBinding(trackIndex: Int, segmentIndex: Int) -> Binding<String> {
+        Binding(
+            get: {
+                guard trackIndex < viewModel.currentScene.tracks.count,
+                      segmentIndex < viewModel.currentScene.tracks[trackIndex].segments.count else {
+                    return "idle"
+                }
+                return viewModel.currentScene.tracks[trackIndex].segments[segmentIndex].animationName
+            },
+            set: { newValue in
+                viewModel.updateSegment(trackIndex: trackIndex, segmentIndex: segmentIndex, animationName: newValue)
+            }
+        )
+    }
+
+    private func stepSnapModeBinding(trackIndex: Int, segmentIndex: Int) -> Binding<SnapMode> {
+        Binding(
+            get: {
+                guard trackIndex < viewModel.currentScene.tracks.count,
+                      segmentIndex < viewModel.currentScene.tracks[trackIndex].segments.count else {
+                    return .none
+                }
+                return viewModel.currentScene.tracks[trackIndex].segments[segmentIndex].snapMode
+            },
+            set: { newValue in
+                viewModel.updateSegment(trackIndex: trackIndex, segmentIndex: segmentIndex, snapMode: newValue)
+            }
+        )
     }
 
     private var controlsSection: some View {

@@ -238,6 +238,8 @@ struct ChoreographerPanelView: View {
         VStack(spacing: 8) {
             HStack(spacing: 8) {
                 Button("Preview") {
+                    viewModel.isPlacing = false
+                    viewModel.pruneEmptyTracks()
                     previewScene()
                 }
                 .disabled(!viewModel.currentScene.isPlayable)
@@ -284,7 +286,11 @@ struct ChoreographerPanelView: View {
     private var creatureIdBinding: Binding<String?> {
         Binding(
             get: { viewModel.activeCreatureId },
-            set: { viewModel.activeCreatureId = $0 }
+            set: { newValue in
+                if let id = newValue {
+                    viewModel.changeCreature(to: id)
+                }
+            }
         )
     }
 

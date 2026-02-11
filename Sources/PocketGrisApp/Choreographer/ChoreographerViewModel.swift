@@ -12,10 +12,10 @@ final class ChoreographerViewModel: ObservableObject {
     @Published var selectedTrackIndex: Int?
     @Published var selectedSegmentIndex: Int?
     @Published var activeCreatureId: String? {
-        didSet { if isPlacing { startPreview() } }
+        didSet { if isPlacing && !suppressPreviewRestart { startPreview() } }
     }
     @Published var activeAnimation: String? {
-        didSet { if isPlacing { startPreview() } }
+        didSet { if isPlacing && !suppressPreviewRestart { startPreview() } }
     }
     @Published var activeSnapMode: SnapMode = .none
     @Published var isPlacing: Bool = false {
@@ -33,6 +33,7 @@ final class ChoreographerViewModel: ObservableObject {
     private var previewTimer: Timer?
     private var undoStack: [PGScene] = []
     private let maxUndoLevels = 20
+    private var suppressPreviewRestart = false
     var onSave: ((PGScene) -> Void)?
     var onClose: (() -> Void)?
 
@@ -69,11 +70,87 @@ final class ChoreographerViewModel: ObservableObject {
     func undo() {
         guard let previous = undoStack.popLast() else { return }
         currentScene = previous
+
+        // Validate selectedTrackIndex against restored scene
+        if let idx = selectedTrackIndex {
+            if idx >= currentScene.tracks.count {
+                selectedTrackIndex = nil
+                selectedSegmentIndex = nil
+                isPlacing = false
+            } else {
+                // Re-sync pickers from the restored track
+                let track = currentScene.tracks[idx]
+                suppressPreviewRestart = true
+                activeCreatureId = track.creatureId
+                activeAnimation = track.segments.first?.animationName
+                    ?? spriteLoader.creature(id: track.creatureId)?.animations.keys.sorted().first
+                suppressPreviewRestart = false
+                if isPlacing { startPreview() }
+            }
+        }
+        selectedSegmentIndex = nil
+    }
+
+    // MARK: - Helpers
+
+    /// Removes the selected track if it has 0 waypoints.
+    /// Adjusts selectedTrackIndex accordingly.
+    @discardableResult
+    func pruneEmptyTracks() -> Bool {
+        guard let idx = selectedTrackIndex, idx < currentScene.tracks.count else { return false }
+        guard currentScene.tracks[idx].waypoints.isEmpty else { return false }
+        currentScene.tracks.remove(at: idx)
+        if currentScene.tracks.isEmpty {
+            selectedTrackIndex = nil
+        } else {
+            selectedTrackIndex = max(0, idx - 1)
+        }
+        selectedSegmentIndex = nil
+        return true
+    }
+
+    /// Changes the active creature, updating the selected track if one exists.
+    func changeCreature(to newCreatureId: String) {
+        guard newCreatureId != activeCreatureId else { return }
+
+        let newCreature = spriteLoader.creature(id: newCreatureId)
+        let firstAnim = newCreature?.animations.keys.sorted().first
+
+        guard let idx = selectedTrackIndex, idx < currentScene.tracks.count else {
+            // No track selected — just update pickers for next addTrack
+            suppressPreviewRestart = true
+            activeCreatureId = newCreatureId
+            activeAnimation = firstAnim
+            suppressPreviewRestart = false
+            if isPlacing { startPreview() }
+            return
+        }
+
+        pushUndo()
+
+        // Update the track's creature
+        currentScene.tracks[idx].creatureId = newCreatureId
+
+        // Fix segment animations that don't exist on the new creature
+        let validAnims = Set(newCreature.map { Array($0.animations.keys) } ?? [])
+        for segIdx in currentScene.tracks[idx].segments.indices {
+            if !validAnims.contains(currentScene.tracks[idx].segments[segIdx].animationName) {
+                currentScene.tracks[idx].segments[segIdx].animationName = firstAnim ?? "idle"
+            }
+        }
+
+        // Update pickers (suppressed to avoid double preview restart)
+        suppressPreviewRestart = true
+        activeCreatureId = newCreatureId
+        activeAnimation = firstAnim
+        suppressPreviewRestart = false
+        if isPlacing { startPreview() }
     }
 
     // MARK: - Track Management
 
     func addTrack(creatureId: String) {
+        pruneEmptyTracks()
         pushUndo()
         let track = SceneTrack(creatureId: creatureId)
         currentScene.tracks.append(track)
@@ -84,8 +161,10 @@ final class ChoreographerViewModel: ObservableObject {
     func removeTrack(at index: Int) {
         guard index < currentScene.tracks.count else { return }
         pushUndo()
+        let wasSelected = selectedTrackIndex == index
         currentScene.tracks.remove(at: index)
-        if selectedTrackIndex == index {
+        if wasSelected {
+            isPlacing = false
             selectedTrackIndex = currentScene.tracks.isEmpty ? nil : max(0, index - 1)
         } else if let sel = selectedTrackIndex, sel > index {
             selectedTrackIndex = sel - 1
@@ -95,9 +174,17 @@ final class ChoreographerViewModel: ObservableObject {
 
     func selectTrack(at index: Int) {
         guard index < currentScene.tracks.count else { return }
-        selectedTrackIndex = index
+        var targetIndex = index
+        // Prune the old track if it's empty before switching away
+        if let oldIdx = selectedTrackIndex, oldIdx != index {
+            if pruneEmptyTracks() && oldIdx < index {
+                targetIndex -= 1
+            }
+        }
+        guard targetIndex >= 0, targetIndex < currentScene.tracks.count else { return }
+        selectedTrackIndex = targetIndex
         selectedSegmentIndex = nil
-        let track = currentScene.tracks[index]
+        let track = currentScene.tracks[targetIndex]
         activeCreatureId = track.creatureId
     }
 
@@ -158,6 +245,8 @@ final class ChoreographerViewModel: ObservableObject {
     // MARK: - Scene Actions
 
     func save() {
+        pruneEmptyTracks()
+        isPlacing = false
         onSave?(currentScene)
     }
 

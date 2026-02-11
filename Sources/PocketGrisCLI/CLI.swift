@@ -15,7 +15,8 @@ struct PocketGrisCLI: ParsableCommand {
             Creatures.self,
             Simulate.self,
             Control.self,
-            Behaviors.self
+            Behaviors.self,
+            Test.self
         ],
         defaultSubcommand: Status.self
     )
@@ -274,4 +275,244 @@ struct BehaviorsList: ParsableCommand {
             print("    Required animations: \(behavior.requiredAnimations.joined(separator: ", "))")
         }
     }
+}
+
+// MARK: - Test
+
+struct Test: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Test behaviors headlessly",
+        subcommands: [TestBehavior.self],
+        defaultSubcommand: TestBehavior.self
+    )
+}
+
+struct TestBehavior: ParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "behavior",
+        abstract: "Run a behavior headlessly and output JSON state"
+    )
+
+    @Argument(help: "Behavior type (peek, traverse, stationary, climber, cursorReactive)")
+    var behaviorType: String
+
+    @Option(name: .long, help: "Creature ID (default: first available)")
+    var creature: String?
+
+    @Option(name: .long, help: "Number of frames to simulate (default: 100)")
+    var frames: Int = 100
+
+    @Option(name: .long, help: "Frame delta time in seconds (default: 0.016667, ~60fps)")
+    var deltaTime: Double = 1.0 / 60.0
+
+    @Option(name: .long, help: "Random seed for reproducible output (default: 42)")
+    var seed: UInt64 = 42
+
+    @Option(name: .long, help: "Screen width (default: 1920)")
+    var screenWidth: Double = 1920
+
+    @Option(name: .long, help: "Screen height (default: 1080)")
+    var screenHeight: Double = 1080
+
+    @Flag(name: .long, help: "Output only frame summaries, not full state")
+    var compact = false
+
+    func run() throws {
+        // Parse behavior type
+        guard let type = BehaviorType(rawValue: behaviorType) else {
+            print("Error: Unknown behavior type '\(behaviorType)'")
+            print("Valid types: \(BehaviorType.allCases.map(\.rawValue).joined(separator: ", "))")
+            throw ExitCode.failure
+        }
+
+        // Get behavior
+        guard let behavior = BehaviorRegistry.shared.behavior(for: type) else {
+            print("Error: Behavior '\(type.rawValue)' not registered")
+            throw ExitCode.failure
+        }
+
+        // Load creature
+        let spriteLoader = SpriteLoader()
+        let creatures = spriteLoader.loadAllCreatures()
+
+        guard !creatures.isEmpty else {
+            print("Error: No creatures found in Resources/Sprites/")
+            throw ExitCode.failure
+        }
+
+        let selectedCreature: Creature
+        if let creatureId = creature {
+            guard let found = creatures.first(where: { $0.id == creatureId }) else {
+                print("Error: Creature '\(creatureId)' not found")
+                print("Available: \(creatures.map(\.id).joined(separator: ", "))")
+                throw ExitCode.failure
+            }
+            selectedCreature = found
+        } else {
+            selectedCreature = creatures[0]
+        }
+
+        // Verify creature has required animations
+        let missing = behavior.requiredAnimations.filter { selectedCreature.animations[$0] == nil }
+        if !missing.isEmpty {
+            print("Warning: Creature '\(selectedCreature.id)' missing animations: \(missing.joined(separator: ", "))")
+        }
+
+        // Set up test environment
+        let random = SeededRandomSource(seed: seed)
+        let screenBounds = ScreenRect(x: 0, y: 0, width: screenWidth, height: screenHeight)
+        var currentTime: TimeInterval = 0
+
+        // Create initial context
+        var context = BehaviorContext(
+            creature: selectedCreature,
+            screenBounds: screenBounds,
+            currentTime: currentTime
+        )
+
+        // Start behavior
+        var state = behavior.start(context: context, random: random)
+
+        // Output structure
+        var output = TestOutput(
+            behaviorType: type.rawValue,
+            creature: selectedCreature.id,
+            seed: seed,
+            deltaTime: deltaTime,
+            screenBounds: BoundsOutput(width: screenWidth, height: screenHeight),
+            frames: []
+        )
+
+        // Simulate frames
+        for frameIndex in 0..<frames {
+            let events = behavior.update(state: &state, context: context, deltaTime: deltaTime)
+
+            let frameOutput = FrameOutput(
+                frame: frameIndex,
+                time: currentTime,
+                phase: state.phase.rawValue,
+                position: PositionOutput(x: state.position.x, y: state.position.y),
+                edge: state.edge?.rawValue,
+                animation: state.animation.map { AnimationOutput(
+                    name: $0.animation.name,
+                    frame: $0.currentFrame,
+                    complete: $0.isComplete
+                )},
+                events: events.map { eventDescription($0) },
+                metadata: state.metadata.isEmpty ? nil : state.metadata
+            )
+
+            output.frames.append(frameOutput)
+
+            // Stop if behavior completed
+            if state.phase == .complete {
+                break
+            }
+
+            // Advance time
+            currentTime += deltaTime
+            context = BehaviorContext(
+                creature: selectedCreature,
+                screenBounds: screenBounds,
+                currentTime: currentTime
+            )
+        }
+
+        // Output JSON
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+
+        if compact {
+            // Compact output: summary only
+            let summary = TestSummary(
+                behaviorType: output.behaviorType,
+                creature: output.creature,
+                totalFrames: output.frames.count,
+                finalPhase: output.frames.last?.phase ?? "unknown",
+                completed: state.phase == .complete,
+                phases: extractPhaseTransitions(output.frames)
+            )
+            let data = try encoder.encode(summary)
+            print(String(data: data, encoding: .utf8)!)
+        } else {
+            let data = try encoder.encode(output)
+            print(String(data: data, encoding: .utf8)!)
+        }
+    }
+
+    private func eventDescription(_ event: BehaviorEvent) -> String {
+        switch event {
+        case .started(let type): return "started:\(type.rawValue)"
+        case .phaseChanged(let phase): return "phaseChanged:\(phase.rawValue)"
+        case .positionChanged(let pos): return "positionChanged:\(pos.x),\(pos.y)"
+        case .animationFrameChanged(let frame): return "animationFrameChanged:\(frame)"
+        case .completed: return "completed"
+        case .cancelled: return "cancelled"
+        }
+    }
+
+    private func extractPhaseTransitions(_ frames: [FrameOutput]) -> [PhaseTransition] {
+        var transitions: [PhaseTransition] = []
+        var lastPhase = ""
+        for frame in frames {
+            if frame.phase != lastPhase {
+                transitions.append(PhaseTransition(frame: frame.frame, time: frame.time, phase: frame.phase))
+                lastPhase = frame.phase
+            }
+        }
+        return transitions
+    }
+}
+
+// MARK: - Test Output Types
+
+private struct TestOutput: Encodable {
+    let behaviorType: String
+    let creature: String
+    let seed: UInt64
+    let deltaTime: Double
+    let screenBounds: BoundsOutput
+    var frames: [FrameOutput]
+}
+
+private struct BoundsOutput: Encodable {
+    let width: Double
+    let height: Double
+}
+
+private struct FrameOutput: Encodable {
+    let frame: Int
+    let time: Double
+    let phase: String
+    let position: PositionOutput
+    let edge: String?
+    let animation: AnimationOutput?
+    let events: [String]
+    let metadata: [String: String]?
+}
+
+private struct PositionOutput: Encodable {
+    let x: Double
+    let y: Double
+}
+
+private struct AnimationOutput: Encodable {
+    let name: String
+    let frame: Int
+    let complete: Bool
+}
+
+private struct TestSummary: Encodable {
+    let behaviorType: String
+    let creature: String
+    let totalFrames: Int
+    let finalPhase: String
+    let completed: Bool
+    let phases: [PhaseTransition]
+}
+
+private struct PhaseTransition: Encodable {
+    let frame: Int
+    let time: Double
+    let phase: String
 }

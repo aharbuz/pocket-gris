@@ -37,3 +37,6 @@ AGENTS/.context-in/
 AGENTS/.deliverables/
 AGENTS/.plans/
 AGENTS/.convos/
+
+# do-work task queue
+do-work/

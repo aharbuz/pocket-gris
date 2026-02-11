@@ -122,15 +122,13 @@ struct TrackPathView: View {
                     let start = track.waypoints[segmentIndex]
                     let end = track.waypoints[segmentIndex + 1]
                     let isSegmentSelected = selectedSegmentIndex == segmentIndex
-                    // Opacity decreases from 1.0 to 0.3 to show temporal order
-                    let opacity = segmentCount > 1 ? 1.0 - (Double(segmentIndex) / Double(segmentCount - 1)) * 0.7 : 1.0
 
                     Path { path in
                         path.move(to: CGPoint(x: start.x, y: start.y))
                         path.addLine(to: CGPoint(x: end.x, y: end.y))
                     }
                     .stroke(
-                        color.opacity(opacity),
+                        color,
                         style: StrokeStyle(
                             lineWidth: isSegmentSelected ? 4.0 : (isSelected ? 2.5 : 1.5),
                             dash: [8, 4]

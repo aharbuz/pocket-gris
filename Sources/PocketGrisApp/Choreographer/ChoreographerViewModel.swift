@@ -27,6 +27,11 @@ final class ChoreographerViewModel: ObservableObject {
     /// Tracks which segments are expanded per track (key: track index, value: set of segment indices)
     @Published var expandedSegmentIndices: [Int: Set<Int>] = [:]
 
+    /// Pending segment settings (used when first segment will be created)
+    @Published var pendingAnimation: String = ""
+    @Published var pendingSnapMode: SnapMode = .none
+    @Published var pendingDuration: TimeInterval = 2.0
+
     // Preview state
     @Published var previewPosition: CGPoint = .zero
     @Published var previewFramePath: String?
@@ -78,6 +83,15 @@ final class ChoreographerViewModel: ObservableObject {
     /// Whether the scene has any content (tracks with waypoints)
     var hasContent: Bool {
         canSave
+    }
+
+    /// Whether a new creature track can be added (current track must have at least one segment)
+    var canAddCreatureTrack: Bool {
+        // Can always add first track
+        if currentScene.tracks.isEmpty { return true }
+        // Otherwise, selected track must have at least one segment
+        guard let idx = selectedTrackIndex, idx < currentScene.tracks.count else { return true }
+        return !currentScene.tracks[idx].segments.isEmpty
     }
 
     var creatures: [Creature] {
@@ -234,13 +248,37 @@ final class ChoreographerViewModel: ObservableObject {
         // Auto-create segment when we have at least 2 waypoints
         let waypointCount = currentScene.tracks[trackIdx].waypoints.count
         if waypointCount >= 2 {
-            let animName = activeAnimation ?? "idle"
+            // For first segment, use pending values; otherwise use active values from last segment
+            let isFirstSegment = currentScene.tracks[trackIdx].segments.isEmpty
+            let animName: String
+            let snapMode: SnapMode
+            let duration: TimeInterval
+
+            if isFirstSegment {
+                // Use pending values (from pending segment UI)
+                animName = pendingAnimation.isEmpty ? (activeAnimation ?? "idle") : pendingAnimation
+                snapMode = pendingSnapMode
+                duration = pendingDuration
+            } else {
+                // Use values from last segment (continuity)
+                animName = activeAnimation ?? "idle"
+                snapMode = activeSnapMode
+                duration = 2.0
+            }
+
             let segment = SceneSegment(
                 animationName: animName,
-                duration: 2.0,
-                snapMode: activeSnapMode
+                duration: duration,
+                snapMode: snapMode
             )
             currentScene.tracks[trackIdx].segments.append(segment)
+
+            // Auto-expand the first segment when created
+            if isFirstSegment {
+                var expanded = expandedSegmentIndices[trackIdx] ?? []
+                expanded.insert(0)
+                expandedSegmentIndices[trackIdx] = expanded
+            }
         }
     }
 
@@ -262,11 +300,14 @@ final class ChoreographerViewModel: ObservableObject {
 
     /// Add a new waypoint (and segment) extending from the last waypoint
     /// The new waypoint is offset from the last one for visibility
-    /// Collapses all existing segments and expands the new one
+    /// Only collapses existing segments when there are already 2+ segments
     func extendTrack() {
         guard let trackIdx = selectedTrackIndex, trackIdx < currentScene.tracks.count else { return }
         let track = currentScene.tracks[trackIdx]
         guard let lastWaypoint = track.waypoints.last else { return }
+
+        // Track segment count before adding
+        let segmentCountBefore = track.segments.count
 
         // Create new waypoint offset from the last one
         let offset: Double = 100
@@ -274,10 +315,18 @@ final class ChoreographerViewModel: ObservableObject {
 
         addWaypoint(at: newPosition)
 
-        // Collapse all segments and expand the new one
+        // Handle expansion/collapse based on segment count
         let newSegmentIndex = currentScene.tracks[trackIdx].segments.count - 1
         if newSegmentIndex >= 0 {
-            expandedSegmentIndices[trackIdx] = [newSegmentIndex]
+            if segmentCountBefore >= 2 {
+                // Collapse all and expand only the new one
+                expandedSegmentIndices[trackIdx] = [newSegmentIndex]
+            } else {
+                // Just expand the new one, keep existing expanded
+                var expanded = expandedSegmentIndices[trackIdx] ?? []
+                expanded.insert(newSegmentIndex)
+                expandedSegmentIndices[trackIdx] = expanded
+            }
         }
     }
 

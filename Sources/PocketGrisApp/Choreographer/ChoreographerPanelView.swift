@@ -56,6 +56,7 @@ struct ChoreographerPanelView: View {
                 }) {
                     Image(systemName: "plus")
                 }
+                .disabled(!viewModel.canAddCreatureTrack)
                 .help("Add creature track")
             }
 
@@ -131,10 +132,7 @@ struct ChoreographerPanelView: View {
 
                     // Segment list
                     if track.segments.isEmpty {
-                        Text("Place at least 2 waypoints to create segments.")
-                            .foregroundColor(.secondary)
-                            .font(.caption)
-                            .padding(.leading, 16)
+                        pendingSegmentRow(trackIndex: index)
                     } else {
                         ForEach(Array(track.segments.enumerated()), id: \.offset) { segIdx, segment in
                             segmentRow(trackIndex: index, segmentIndex: segIdx, segment: segment)
@@ -190,9 +188,22 @@ struct ChoreographerPanelView: View {
                 }
                 .buttonStyle(.plain)
 
-                // Animation name
-                Text(segment.animationName)
-                    .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                // Animation: show picker when expanded, text when collapsed
+                if isExpanded {
+                    if let creature = viewModel.creatures.first(where: { $0.id == viewModel.currentScene.tracks[trackIndex].creatureId }) {
+                        Picker("", selection: stepAnimationBinding(trackIndex: trackIndex, segmentIndex: segmentIndex)) {
+                            ForEach(creature.animations.keys.sorted(), id: \.self) { name in
+                                Text(name).tag(name)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.menu)
+                        .frame(maxWidth: 100)
+                    }
+                } else {
+                    Text(segment.animationName)
+                        .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+                }
 
                 // Snap mode indicator
                 Text("•")
@@ -243,22 +254,6 @@ struct ChoreographerPanelView: View {
             // Expanded detail view
             if isExpanded {
                 VStack(alignment: .leading, spacing: 6) {
-                    // Animation picker
-                    if let creature = viewModel.creatures.first(where: { $0.id == viewModel.currentScene.tracks[trackIndex].creatureId }) {
-                        HStack {
-                            Text("Animation:")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                            Picker("", selection: stepAnimationBinding(trackIndex: trackIndex, segmentIndex: segmentIndex)) {
-                                ForEach(creature.animations.keys.sorted(), id: \.self) { name in
-                                    Text(name).tag(name)
-                                }
-                            }
-                            .labelsHidden()
-                            .pickerStyle(.menu)
-                        }
-                    }
-
                     // Snap mode picker
                     HStack {
                         Text("Snap Mode:")
@@ -334,6 +329,115 @@ struct ChoreographerPanelView: View {
         }
     }
 
+    @ViewBuilder
+    private func pendingSegmentRow(trackIndex: Int) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            // Header (always expanded style)
+            HStack(spacing: 4) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .frame(width: 12, height: 12)
+
+                // Animation picker (editable)
+                if let creature = viewModel.creatures.first(where: { $0.id == viewModel.currentScene.tracks[trackIndex].creatureId }) {
+                    Picker("", selection: pendingAnimationBinding(trackIndex: trackIndex)) {
+                        ForEach(creature.animations.keys.sorted(), id: \.self) { name in
+                            Text(name).tag(name)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                    .frame(maxWidth: 100)
+                }
+
+                Text("•")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                Text(snapModeShortLabel(viewModel.pendingSnapMode))
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+                Text("•")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                Text(String(format: "%.1fs", viewModel.pendingDuration))
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                // Disabled reorder buttons
+                HStack(spacing: 2) {
+                    Image(systemName: "chevron.up")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary.opacity(0.3))
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary.opacity(0.3))
+                }
+            }
+
+            // Expanded details
+            VStack(alignment: .leading, spacing: 6) {
+                // Snap mode picker
+                HStack {
+                    Text("Snap Mode:")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                    Picker("", selection: $viewModel.pendingSnapMode) {
+                        ForEach(SnapMode.allCases, id: \.self) { mode in
+                            Text(snapModeLabel(mode)).tag(mode)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
+
+                // Duration slider
+                HStack {
+                    Text("Duration:")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                    Slider(value: $viewModel.pendingDuration, in: 0.5...10.0, step: 0.5)
+                    Text(String(format: "%.1fs", viewModel.pendingDuration))
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                        .frame(width: 32, alignment: .trailing)
+                }
+
+                Text("Will be created when you place 2 waypoints")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+                    .italic()
+            }
+            .padding(.leading, 16)
+        }
+        .padding(.vertical, 3)
+        .padding(.horizontal, 6)
+        .padding(.leading, 10)
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.accentColor.opacity(0.15))
+        )
+    }
+
+    private func pendingAnimationBinding(trackIndex: Int) -> Binding<String> {
+        Binding(
+            get: {
+                // Use viewModel's pending animation if set, otherwise derive from creature
+                if !viewModel.pendingAnimation.isEmpty {
+                    return viewModel.pendingAnimation
+                }
+                guard trackIndex < viewModel.currentScene.tracks.count else { return "idle" }
+                let creatureId = viewModel.currentScene.tracks[trackIndex].creatureId
+                return viewModel.creatures.first(where: { $0.id == creatureId })?.animations.keys.sorted().first ?? "idle"
+            },
+            set: { newValue in
+                viewModel.pendingAnimation = newValue
+            }
+        )
+    }
+
     private func trackCreatureBinding(trackIndex: Int) -> Binding<String> {
         Binding(
             get: {
@@ -396,6 +500,7 @@ struct ChoreographerPanelView: View {
 
     private var controlsSection: some View {
         VStack(spacing: 8) {
+            // Primary actions: Preview, Undo, New
             HStack(spacing: 8) {
                 Button("Preview") {
                     viewModel.isPlacing = false
@@ -408,8 +513,14 @@ struct ChoreographerPanelView: View {
                     viewModel.undo()
                 }
                 .disabled(!viewModel.canUndo)
+
+                Button("New") {
+                    viewModel.newScene()
+                }
+                .disabled(!viewModel.hasContent)
             }
 
+            // File actions and close
             HStack(spacing: 8) {
                 Button("Save") {
                     viewModel.save()
@@ -427,13 +538,8 @@ struct ChoreographerPanelView: View {
                         }
                     }
                 }
-            }
 
-            HStack(spacing: 8) {
-                Button("New") {
-                    viewModel.newScene()
-                }
-                .disabled(!viewModel.hasContent)
+                Spacer()
 
                 Button("Close") {
                     viewModel.onClose?()

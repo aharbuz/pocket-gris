@@ -301,6 +301,42 @@ Restructured the panel to move creature/snap controls from top-level into the tr
 └─────────────────────────────────────┘
 ```
 
+#### Choreographer Panel UI Refinements
+Follow-on polish based on user feedback:
+
+**Animation Picker in Header (expanded state):**
+- When segment is expanded, animation picker now appears in header row instead of text
+- Removed duplicate "Animation:" row from expanded details section
+- Collapsed state still shows animation name as text
+
+**Pending Segment for Empty Tracks:**
+- New tracks now show a "pending segment" row instead of placeholder text
+- Pending row is always expanded with highlighted background
+- Shows editable defaults: animation picker, snap mode, duration slider
+- Caption: "Will be created when you place 2 waypoints"
+- Added `pendingAnimation`, `pendingSnapMode`, `pendingDuration` properties to ViewModel
+- First segment created uses pending values
+
+**Button Layout Rework:**
+- Changed from 3 rows to 2 rows for cleaner appearance
+- Row 1: `[Preview] [Undo] [New]`
+- Row 2: `[Save] [Load] ... [Close]`
+
+**Removed Line Opacity Gradient:**
+- REQ-014's opacity fade (100% → 30%) removed per user feedback
+- All segment lines now use consistent opacity
+
+**Add Creature Button Gating:**
+- "+" button next to "Creatures" now disabled until current track has ≥1 segment
+- Prevents creating multiple empty tracks
+- Added `canAddCreatureTrack` computed property
+
+**Segment Expansion Behavior:**
+- First segment auto-expands when created (after placing 2 waypoints)
+- Adding 2nd segment keeps both expanded (no collapse)
+- Adding 3rd+ segment collapses existing and expands only the new one
+- Supports single-segment scenes (e.g., idling creature) without auto-collapse
+
 ### All Phases Complete (0-8 + Choreographer + UI Polish)
 
 The core feature set, choreographer, and UI polish are complete. Potential future work:

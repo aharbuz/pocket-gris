@@ -238,17 +238,17 @@ Session continuing from above.
 - **Fixed waypoint drag flying off screen**: Added `@State dragStartPosition` to capture the position when drag begins. Prevents issues where view re-renders during drag cause the starting position reference to change mid-gesture.
 - **Verified working**: All fixes tested and confirmed functional.
 
-#### Choreographer UI Polish (UR-005) — PENDING
-Captured 5 REQs for UI improvements:
-- REQ-010: Pre-load default track on open (gris, walk-left, snap none, delay 0, duration 2s)
-- REQ-011: Conditional button states (grey out until ready)
-- REQ-012: Hide "segment" terminology - nested bullet UI
-- REQ-013: Segment selection with visual highlighting (path thickness, waypoint size, panel highlight)
-- REQ-014: Segment opacity gradient (100% → 30%)
+#### Choreographer UI Polish (UR-005) ✅
+Completed 5 REQs for UI improvements:
+- REQ-010: Pre-load default track on open (gris, walk-left, snap none, delay 0, duration 2s) → 9aa3716
+- REQ-011: Conditional button states (grey out until ready) → d338d54
+- REQ-012: Hide "segment" terminology - nested bullet/disclosure UI with collapsible path steps → d572460
+- REQ-013: Segment selection with visual highlighting (per-segment path thickness, endpoint glow, click to deselect) → d5f31d6
+- REQ-014: Segment opacity gradient (100% → 30% fade for temporal order) → 3e9f28e
 
-### All Phases Complete (0-8 + Choreographer)
+### All Phases Complete (0-8 + Choreographer + UI Polish)
 
-The core feature set and choreographer are complete. Potential future work:
+The core feature set, choreographer, and UI polish are complete. Potential future work:
 - More creatures and sprite art
 - Additional behaviors (dancing, sleeping, window-interacting)
 - Custom creature editor / drag-and-drop sprite import

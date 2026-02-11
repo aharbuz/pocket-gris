@@ -44,6 +44,16 @@ final class ChoreographerViewModel: ObservableObject {
 
     var canUndo: Bool { !undoStack.isEmpty }
 
+    /// Whether the scene can be saved (has at least one waypoint in any track)
+    var canSave: Bool {
+        currentScene.tracks.contains { !$0.waypoints.isEmpty }
+    }
+
+    /// Whether the scene has any content (tracks with waypoints)
+    var hasContent: Bool {
+        canSave
+    }
+
     var creatures: [Creature] {
         spriteLoader.allCreatures()
     }

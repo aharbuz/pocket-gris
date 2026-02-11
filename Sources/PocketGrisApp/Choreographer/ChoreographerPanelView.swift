@@ -314,7 +314,7 @@ struct ChoreographerPanelView: View {
                 Button("Save") {
                     viewModel.save()
                 }
-                .disabled(viewModel.currentScene.tracks.isEmpty)
+                .disabled(!viewModel.canSave)
 
                 Menu("Load") {
                     let scenes = sceneStorage.loadAll()
@@ -333,6 +333,7 @@ struct ChoreographerPanelView: View {
                 Button("New") {
                     viewModel.newScene()
                 }
+                .disabled(!viewModel.hasContent)
 
                 Button("Close") {
                     viewModel.onClose?()

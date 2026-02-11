@@ -8,14 +8,16 @@ struct ChoreographerOverlayView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Click target (transparent) - only accepts hits during placement mode
+                // Click target (transparent) - handles placement and deselection
                 Color.clear
                     .contentShape(Rectangle())
-                    .allowsHitTesting(viewModel.isPlacing)
                     .onTapGesture { location in
                         if viewModel.isPlacing {
                             let pos = Position(x: location.x, y: location.y)
                             viewModel.addWaypoint(at: pos)
+                        } else {
+                            // Click on empty area deselects segment
+                            viewModel.selectedSegmentIndex = nil
                         }
                     }
 
@@ -25,6 +27,7 @@ struct ChoreographerOverlayView: View {
                         track: track,
                         trackIndex: trackIndex,
                         isSelected: viewModel.selectedTrackIndex == trackIndex,
+                        selectedSegmentIndex: viewModel.selectedTrackIndex == trackIndex ? viewModel.selectedSegmentIndex : nil,
                         color: viewModel.colorForTrack(at: trackIndex),
                         onWaypointTap: { wpIndex in
                             viewModel.selectTrack(at: trackIndex)
@@ -103,6 +106,7 @@ struct TrackPathView: View {
     let track: SceneTrack
     let trackIndex: Int
     let isSelected: Bool
+    let selectedSegmentIndex: Int?
     let color: Color
     var onWaypointTap: ((Int) -> Void)?
     var onWaypointRightClick: ((Int) -> Void)?
@@ -111,18 +115,25 @@ struct TrackPathView: View {
 
     var body: some View {
         ZStack {
-            // Draw path lines between waypoints
+            // Draw path lines between waypoints (each segment drawn separately)
             if track.waypoints.count >= 2 {
-                Path { path in
-                    path.move(to: CGPoint(x: track.waypoints[0].x, y: track.waypoints[0].y))
-                    for i in 1..<track.waypoints.count {
-                        path.addLine(to: CGPoint(x: track.waypoints[i].x, y: track.waypoints[i].y))
+                ForEach(0..<track.waypoints.count - 1, id: \.self) { segmentIndex in
+                    let start = track.waypoints[segmentIndex]
+                    let end = track.waypoints[segmentIndex + 1]
+                    let isSegmentSelected = selectedSegmentIndex == segmentIndex
+
+                    Path { path in
+                        path.move(to: CGPoint(x: start.x, y: start.y))
+                        path.addLine(to: CGPoint(x: end.x, y: end.y))
                     }
+                    .stroke(
+                        color,
+                        style: StrokeStyle(
+                            lineWidth: isSegmentSelected ? 4.0 : (isSelected ? 2.5 : 1.5),
+                            dash: [8, 4]
+                        )
+                    )
                 }
-                .stroke(
-                    color,
-                    style: StrokeStyle(lineWidth: isSelected ? 2.5 : 1.5, dash: [8, 4])
-                )
             }
 
             // Draw waypoints
@@ -132,7 +143,8 @@ struct TrackPathView: View {
                     index: wpIndex,
                     animationLabel: animationLabel(for: wpIndex),
                     color: color,
-                    isSelected: isSelected,
+                    isTrackSelected: isSelected,
+                    isSegmentEndpoint: isEndpointOfSelectedSegment(wpIndex),
                     onTap: { onWaypointTap?(wpIndex) },
                     onRightClick: { onWaypointRightClick?(wpIndex) },
                     onDragStart: { onWaypointDragStart?() },
@@ -140,6 +152,13 @@ struct TrackPathView: View {
                 )
             }
         }
+    }
+
+    /// Check if a waypoint is an endpoint of the selected segment
+    private func isEndpointOfSelectedSegment(_ waypointIndex: Int) -> Bool {
+        guard let segIdx = selectedSegmentIndex else { return false }
+        // Segment N connects waypoints N and N+1
+        return waypointIndex == segIdx || waypointIndex == segIdx + 1
     }
 
     /// Get animation label for a waypoint
@@ -168,7 +187,8 @@ struct WaypointDot: View {
     let index: Int
     let animationLabel: String?
     let color: Color
-    let isSelected: Bool
+    let isTrackSelected: Bool
+    let isSegmentEndpoint: Bool
     var onTap: (() -> Void)?
     var onRightClick: (() -> Void)?
     var onDragStart: (() -> Void)?
@@ -177,17 +197,37 @@ struct WaypointDot: View {
     @State private var isDragging = false
     @State private var dragStartPosition: Position?
 
+    // Compute sizes based on selection state
+    private var outerSize: CGFloat {
+        if isSegmentEndpoint { return 20 }
+        if isTrackSelected { return 16 }
+        return 12
+    }
+
+    private var innerSize: CGFloat {
+        if isSegmentEndpoint { return 10 }
+        if isTrackSelected { return 8 }
+        return 6
+    }
+
     var body: some View {
         ZStack {
+            // Glow effect for segment endpoint
+            if isSegmentEndpoint {
+                Circle()
+                    .fill(color.opacity(0.3))
+                    .frame(width: outerSize + 8, height: outerSize + 8)
+            }
+
             // Outer ring
             Circle()
                 .fill(isDragging ? color.opacity(0.7) : color)
-                .frame(width: isSelected ? 16 : 12, height: isSelected ? 16 : 12)
+                .frame(width: outerSize, height: outerSize)
 
             // Inner dot
             Circle()
                 .fill(Color.white)
-                .frame(width: isSelected ? 8 : 6, height: isSelected ? 8 : 6)
+                .frame(width: innerSize, height: innerSize)
 
             // Index label (above waypoint)
             Text("\(index + 1)")

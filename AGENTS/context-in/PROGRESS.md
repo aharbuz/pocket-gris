@@ -201,6 +201,15 @@
 - **Fixed preview timer not stopping on close**: `close()` now explicitly sets `isPlacing = false` before teardown, triggering `stopPreview()` to invalidate the timer — same cleanup pattern as previous waypoint fix.
 - **New type conflict**: `AnimationState` in PocketGrisCore conflicts with `SwiftUI.AnimationState` — resolved with `PocketGrisCore.AnimationState` qualification in ViewModel.
 
+#### Choreographer Mid-Placement Interaction Fixes
+- **Creature picker updates track**: Switching creature mid-placement now updates the selected track's `creatureId` and fixes invalid segment animation names (pushes undo)
+- **Empty track pruning**: Tracks with 0 waypoints are auto-removed on add track, select track, save, and preview — prevents accumulation of abandoned tracks
+- **Delete selected track exits placement**: Deleting the track being placed sets `isPlacing = false`
+- **Undo validates state**: After undo, `selectedTrackIndex` is validated against the restored scene; pickers re-sync from track data (creature + animation)
+- **Save exits placement**: Prunes empty tracks and stops placement mode before saving
+- **Preview exits placement**: Stops placement and prunes before playing scene preview
+- **Suppressed double preview restarts**: `suppressPreviewRestart` flag prevents `didSet` observers on `activeCreatureId`/`activeAnimation` from each triggering `startPreview()` during batch updates
+
 ### All Phases Complete (0-8 + Choreographer)
 
 The core feature set and choreographer are complete. Potential future work:

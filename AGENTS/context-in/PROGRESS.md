@@ -231,8 +231,11 @@ Session continuing from above.
 
 #### Choreographer Cleanup (UR-003)
 - **Removed duplicate snap modes**: Consolidated `onTopOfWindow`/`windowTop` and `underneathWindow`/`windowBottom` — kept the consistent `windowTop/windowBottom` naming to match `windowLeft/windowRight`
-- **Fixed waypoint drag double-offset bug**: WaypointDot was applying `dragOffset` visually while also updating the position via `onDrag` callback, causing waypoints to jump twice as far as expected. Removed the visual offset; position now updates solely through the callback.
-- **Fixed waypoint editing in previous segments**: Overlay window's `ignoresMouseEvents` was toggled based on `isPlacing`, preventing clicks on waypoints when not actively placing. Now always accepts mouse events while choreographer is open.
+
+#### Choreographer Interaction Fixes (UR-004)
+- **Fixed panel freezing on Escape**: Panel now always stays above overlay (`floating + 1` level) regardless of placement mode. Previously, panel level dropped when `isPlacing` became false, making it unreachable behind the event-capturing overlay.
+- **Fixed background click-through**: Added `.allowsHitTesting(viewModel.isPlacing)` to the overlay's Color.clear background. Clicks only captured during placement mode; waypoints remain interactive always.
+- **Fixed waypoint drag flying off screen**: Added `@State dragStartPosition` to capture the position when drag begins. Prevents issues where view re-renders during drag cause the starting position reference to change mid-gesture.
 
 ### All Phases Complete (0-8 + Choreographer)
 

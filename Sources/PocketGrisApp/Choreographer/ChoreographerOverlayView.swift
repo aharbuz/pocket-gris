@@ -8,9 +8,10 @@ struct ChoreographerOverlayView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                // Click target (transparent)
+                // Click target (transparent) - only accepts hits during placement mode
                 Color.clear
                     .contentShape(Rectangle())
+                    .allowsHitTesting(viewModel.isPlacing)
                     .onTapGesture { location in
                         if viewModel.isPlacing {
                             let pos = Position(x: location.x, y: location.y)
@@ -174,6 +175,7 @@ struct WaypointDot: View {
     var onDrag: ((Position) -> Void)?
 
     @State private var isDragging = false
+    @State private var dragStartPosition: Position?
 
     var body: some View {
         ZStack {
@@ -213,17 +215,23 @@ struct WaypointDot: View {
             DragGesture(minimumDistance: 5)
                 .onChanged { value in
                     if !isDragging {
+                        // Capture the starting position at drag start
                         isDragging = true
+                        dragStartPosition = position
                         onDragStart?()
                     }
-                    let newPos = Position(
-                        x: position.x + value.translation.width,
-                        y: position.y + value.translation.height
-                    )
-                    onDrag?(newPos)
+                    // Use the captured start position, not the current (potentially updated) position
+                    if let start = dragStartPosition {
+                        let newPos = Position(
+                            x: start.x + value.translation.width,
+                            y: start.y + value.translation.height
+                        )
+                        onDrag?(newPos)
+                    }
                 }
                 .onEnded { _ in
                     isDragging = false
+                    dragStartPosition = nil
                 }
         )
         .onTapGesture {

@@ -71,7 +71,9 @@ final class ChoreographerPanelController: NSObject, NSWindowDelegate {
     }
 
     func setAboveOverlay(_ above: Bool) {
-        window?.level = above ? NSWindow.Level(NSWindow.Level.floating.rawValue + 1) : .floating
+        // Panel is always above overlay to remain clickable
+        // The 'above' parameter only affects whether overlay is key (for keyboard events)
+        window?.level = NSWindow.Level(NSWindow.Level.floating.rawValue + 1)
     }
 
     func close() {

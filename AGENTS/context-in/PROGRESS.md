@@ -195,6 +195,12 @@
 - **Fixed overlay not cleaning up on close**: Added `teardown()` method that cancels Combine subscription, clears contentView/viewModel, and calls `orderOut(nil)`.
 - **Fixed red X close button not cleaning up overlay**: Made `ChoreographerPanelController` an `NSWindowDelegate`, implementing `windowWillClose` to trigger `viewModel.onClose?()` — ensuring the overlay is cleaned up regardless of how the panel is closed.
 
+#### Choreographer UX Improvements
+- **Panel stays interactive during placement**: Panel window level rises above overlay (`floating + 1`) when `isPlacing` is true, controlled via Combine subscription in `ChoreographerController`. Overlay retains key window status for Esc handling.
+- **Animated sprite preview at cursor**: Ghost sprite follows mouse during waypoint placement, showing the active creature/animation. Timer-driven frame cycling with `AnimationState`, frames preloaded via `ImageCache`. Preview updates live when creature or animation selection changes in the panel.
+- **Fixed preview timer not stopping on close**: `close()` now explicitly sets `isPlacing = false` before teardown, triggering `stopPreview()` to invalidate the timer — same cleanup pattern as previous waypoint fix.
+- **New type conflict**: `AnimationState` in PocketGrisCore conflicts with `SwiftUI.AnimationState` — resolved with `PocketGrisCore.AnimationState` qualification in ViewModel.
+
 ### All Phases Complete (0-8 + Choreographer)
 
 The core feature set and choreographer are complete. Potential future work:

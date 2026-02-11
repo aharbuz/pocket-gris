@@ -11,12 +11,26 @@ final class ChoreographerViewModel: ObservableObject {
     @Published var currentScene: PGScene
     @Published var selectedTrackIndex: Int?
     @Published var selectedSegmentIndex: Int?
-    @Published var activeCreatureId: String?
-    @Published var activeAnimation: String?
+    @Published var activeCreatureId: String? {
+        didSet { if isPlacing { startPreview() } }
+    }
+    @Published var activeAnimation: String? {
+        didSet { if isPlacing { startPreview() } }
+    }
     @Published var activeSnapMode: SnapMode = .none
-    @Published var isPlacing: Bool = false
+    @Published var isPlacing: Bool = false {
+        didSet {
+            if isPlacing { startPreview() } else { stopPreview() }
+        }
+    }
+
+    // Preview state
+    @Published var previewPosition: CGPoint = .zero
+    @Published var previewFramePath: String?
 
     private let spriteLoader: SpriteLoader
+    private var previewAnimationState: PocketGrisCore.AnimationState?
+    private var previewTimer: Timer?
     private var undoStack: [PGScene] = []
     private let maxUndoLevels = 20
     var onSave: ((PGScene) -> Void)?
@@ -159,6 +173,70 @@ final class ChoreographerViewModel: ObservableObject {
         selectedTrackIndex = scene.tracks.isEmpty ? nil : 0
         selectedSegmentIndex = nil
         isPlacing = false
+    }
+
+    // MARK: - Preview
+
+    func updatePreviewPosition(_ point: CGPoint) {
+        previewPosition = point
+    }
+
+    func startPreview() {
+        stopPreview()
+        guard let creatureId = activeCreatureId,
+              let animName = activeAnimation,
+              let creature = spriteLoader.creature(id: creatureId),
+              let animation = creature.animation(named: animName) else {
+            return
+        }
+
+        // Preload frames in background
+        if let paths = spriteLoader.allFramePaths(creature: creatureId, animation: animName) {
+            ImageCache.shared.preload(paths: paths)
+        }
+
+        let animState = PocketGrisCore.AnimationState(animation: animation)
+        previewAnimationState = animState
+
+        // Set initial frame
+        previewFramePath = spriteLoader.framePath(
+            creature: creatureId, animation: animName, frame: animState.currentFrame
+        )
+
+        let interval = 1.0 / animation.fps
+        previewTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            self?.advancePreview()
+        }
+    }
+
+    func stopPreview() {
+        previewTimer?.invalidate()
+        previewTimer = nil
+        previewAnimationState = nil
+        previewFramePath = nil
+    }
+
+    private func advancePreview() {
+        guard var animState = previewAnimationState,
+              let creatureId = activeCreatureId,
+              let animName = activeAnimation else { return }
+
+        let interval = 1.0 / animState.animation.fps
+        _ = animState.advance(by: interval)
+
+        // Loop non-looping animations for continuous preview
+        if animState.isComplete {
+            animState.reset()
+        }
+
+        previewAnimationState = animState
+        previewFramePath = spriteLoader.framePath(
+            creature: creatureId, animation: animName, frame: animState.currentFrame
+        )
+    }
+
+    deinit {
+        previewTimer?.invalidate()
     }
 
     // MARK: - Track Colors

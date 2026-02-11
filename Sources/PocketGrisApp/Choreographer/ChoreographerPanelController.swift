@@ -70,6 +70,10 @@ final class ChoreographerPanelController: NSObject, NSWindowDelegate {
         panel.makeKeyAndOrderFront(nil)
     }
 
+    func setAboveOverlay(_ above: Bool) {
+        window?.level = above ? NSWindow.Level(NSWindow.Level.floating.rawValue + 1) : .floating
+    }
+
     func close() {
         window?.delegate = nil
         window?.close()

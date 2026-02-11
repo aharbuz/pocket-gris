@@ -56,6 +56,14 @@ final class ChoreographerOverlayWindow: NSWindow {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    override func mouseMoved(with event: NSEvent) {
+        guard let contentView = contentView else { return }
+        let locationInWindow = event.locationInWindow
+        // Flip Y for SwiftUI coordinates (origin top-left)
+        let flippedY = contentView.bounds.height - locationInWindow.y
+        viewModel?.updatePreviewPosition(CGPoint(x: locationInWindow.x, y: flippedY))
+    }
+
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53, viewModel?.isPlacing == true { // Escape stops placement
             viewModel?.isPlacing = false

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import PocketGrisCore
 
 /// Orchestrates the choreographer overlay and panel windows
@@ -7,6 +8,7 @@ final class ChoreographerController {
     private var overlayWindow: ChoreographerOverlayWindow?
     private var panelController: ChoreographerPanelController?
     private var viewModel: ChoreographerViewModel?
+    private var placingCancellable: AnyCancellable?
     private let spriteLoader: SpriteLoader
     private let sceneStorage: SceneStorage
     private let scenePlayer: ScenePlayer
@@ -60,9 +62,20 @@ final class ChoreographerController {
         )
         panel.show()
         self.panelController = panel
+
+        // Keep panel above overlay during placement so it stays interactive
+        placingCancellable = vm.$isPlacing.sink { [weak panel, weak overlay] isPlacing in
+            panel?.setAboveOverlay(isPlacing)
+            if isPlacing {
+                overlay?.makeKey()
+            }
+        }
     }
 
     func close() {
+        placingCancellable?.cancel()
+        placingCancellable = nil
+        viewModel?.isPlacing = false
         overlayWindow?.teardown()
         overlayWindow = nil
         panelController?.close()

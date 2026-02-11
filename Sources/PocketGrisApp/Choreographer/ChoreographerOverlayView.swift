@@ -35,6 +35,21 @@ struct ChoreographerOverlayView: View {
                     )
                 }
 
+                // Sprite preview at cursor
+                if viewModel.isPlacing, let framePath = viewModel.previewFramePath,
+                   let nsImage = ImageCache.shared.image(for: framePath) {
+                    Image(nsImage: nsImage)
+                        .interpolation(.none)
+                        .resizable()
+                        .frame(width: 64, height: 64)
+                        .opacity(0.7)
+                        .position(
+                            x: viewModel.previewPosition.x + 32,
+                            y: viewModel.previewPosition.y - 32
+                        )
+                        .allowsHitTesting(false)
+                }
+
                 // Instructions overlay
                 if viewModel.isPlacing {
                     VStack {

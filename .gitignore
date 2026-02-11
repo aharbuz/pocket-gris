@@ -28,3 +28,12 @@ DerivedData/
 
 # Python venv
 scripts/.venv/
+
+# Environment
+.env
+
+# AGENTS hidden dirs
+AGENTS/.context-in/
+AGENTS/.deliverables/
+AGENTS/.plans/
+AGENTS/.convos/

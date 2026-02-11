@@ -46,9 +46,6 @@ final class ChoreographerController {
         // Create overlay window
         let overlay = ChoreographerOverlayWindow()
         overlay.setup(viewModel: vm)
-        overlay.onEscape = { [weak self] in
-            self?.close()
-        }
         overlay.makeKeyAndOrderFront(nil)
         self.overlayWindow = overlay
 
@@ -66,7 +63,7 @@ final class ChoreographerController {
     }
 
     func close() {
-        overlayWindow?.close()
+        overlayWindow?.teardown()
         overlayWindow = nil
         panelController?.close()
         panelController = nil

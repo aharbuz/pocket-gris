@@ -58,7 +58,7 @@ struct ChoreographerOverlayView: View {
                                     Capsule()
                                         .fill(Color.black.opacity(0.7))
                                 )
-                            Text("Esc to exit")
+                            Text("Esc to stop placing")
                                 .font(.system(size: 14, weight: .medium))
                                 .foregroundColor(.white)
                                 .padding(.horizontal, 16)

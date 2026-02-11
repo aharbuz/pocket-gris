@@ -184,6 +184,17 @@
 - Settings: ✅ Full SwiftUI settings window with live persistence
 - Choreographer: ✅ Visual scene editor with multi-track playback
 
+---
+
+## Session: 2026-02-11
+
+#### Choreographer Bug Fixes
+- **Fixed app freeze on opening Choreographer**: Overlay window was at `.modalPanel` level (8) while the panel was at `.floating` level (3). The fullscreen overlay intercepted all mouse events, making the panel unreachable. Fixed by changing overlay to `.floating` level.
+- **Fixed Escape closing choreographer accidentally**: Escape now only stops waypoint placement mode, never closes the choreographer. Close via the panel's "Close" button or red X instead.
+- **Fixed overlay mouse event passthrough**: Added Combine subscription to toggle `ignoresMouseEvents` based on `isPlacing` state. Overlay only captures clicks during active waypoint placement; passes through to panel otherwise.
+- **Fixed overlay not cleaning up on close**: Added `teardown()` method that cancels Combine subscription, clears contentView/viewModel, and calls `orderOut(nil)`.
+- **Fixed red X close button not cleaning up overlay**: Made `ChoreographerPanelController` an `NSWindowDelegate`, implementing `windowWillClose` to trigger `viewModel.onClose?()` — ensuring the overlay is cleaned up regardless of how the panel is closed.
+
 ### All Phases Complete (0-8 + Choreographer)
 
 The core feature set and choreographer are complete. Potential future work:

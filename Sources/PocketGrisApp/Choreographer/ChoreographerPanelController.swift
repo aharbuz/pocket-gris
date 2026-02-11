@@ -3,7 +3,7 @@ import SwiftUI
 import PocketGrisCore
 
 /// Manages the choreographer floating panel window
-final class ChoreographerPanelController {
+final class ChoreographerPanelController: NSObject, NSWindowDelegate {
     private var window: NSPanel?
     private let viewModel: ChoreographerViewModel
     private let sceneStorage: PGSceneStorage
@@ -65,12 +65,21 @@ final class ChoreographerPanelController {
             panel.setFrameOrigin(NSPoint(x: x, y: y))
         }
 
+        panel.delegate = self
         self.window = panel
         panel.makeKeyAndOrderFront(nil)
     }
 
     func close() {
+        window?.delegate = nil
         window?.close()
         window = nil
+    }
+
+    // MARK: - NSWindowDelegate
+
+    func windowWillClose(_ notification: Notification) {
+        window = nil
+        viewModel.onClose?()
     }
 }

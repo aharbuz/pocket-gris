@@ -210,6 +210,25 @@
 - **Preview exits placement**: Stops placement and prunes before playing scene preview
 - **Suppressed double preview restarts**: `suppressPreviewRestart` flag prevents `didSet` observers on `activeCreatureId`/`activeAnimation` from each triggering `startPreview()` during batch updates
 
+#### CLI Headless Behavior Testing
+- **New `pocketgris test behavior` command**: Runs behaviors headlessly without GUI
+  - Outputs structured JSON state for each frame
+  - Uses `SeededRandomSource` for reproducible, deterministic output
+  - Options: `--creature`, `--frames`, `--delta-time`, `--seed`, `--screen-width`, `--screen-height`
+  - `--compact` flag outputs summary only (phase transitions, completion status)
+- **Output includes**: frame number, time, phase, position, edge, animation state, events, metadata
+- **Enables CI testing**: Behaviors can be validated without GUI app running
+
+#### Choreographer UX Batch (UR-002)
+Session continuing from above.
+
+- **Smooth cursor preview animation**: Fixed jumpy cursor-following sprite preview by adding CVDisplayLink-based position smoothing with exponential interpolation. Preview now smoothly tracks cursor at 60fps instead of updating position directly from mouse events.
+- **Segment reordering**: Added up/down chevron buttons and context menu options to reorder segments in the panel's segment list. Segments swap properties (animation, duration, snapMode) while waypoints remain in place.
+- **Segment deletion**: Added context menu "Delete Segment" option that removes the segment and its corresponding waypoint while maintaining the segments.count == waypoints.count - 1 invariant.
+- **Waypoint animation labels**: Each waypoint now displays its associated animation name below it. Waypoint 0 shows the first segment's animation; waypoint N shows segment N-1's animation.
+- **Segment creation UX**: Added "+" button to Segments header that extends the track by adding a new waypoint/segment. Animation picker now shows "(editing segment)" hint when a segment is selected, and changing animation updates both the active animation AND the selected segment's animation.
+- **Waypoint drag-to-move**: Waypoints can now be dragged to reposition them. Drag gesture captures undo state at start, updates position in real-time during drag.
+
 ### All Phases Complete (0-8 + Choreographer)
 
 The core feature set and choreographer are complete. Potential future work:
@@ -247,4 +266,5 @@ Key choreographer files:
 To test: swift build && swift test
 To run app: swift run PocketGrisApp
 To open choreographer: Cmd+Shift+C (while app is running)
+To test behaviors headlessly: swift run pocketgris test behavior peek --creature gris --frames 500 --compact
 ```

@@ -31,6 +31,12 @@ struct ChoreographerOverlayView: View {
                         },
                         onWaypointRightClick: { wpIndex in
                             viewModel.removeWaypoint(trackIndex: trackIndex, waypointIndex: wpIndex)
+                        },
+                        onWaypointDragStart: {
+                            viewModel.beginWaypointDrag()
+                        },
+                        onWaypointDrag: { wpIndex, newPos in
+                            viewModel.moveWaypoint(trackIndex: trackIndex, waypointIndex: wpIndex, to: newPos)
                         }
                     )
                 }
@@ -99,6 +105,8 @@ struct TrackPathView: View {
     let color: Color
     var onWaypointTap: ((Int) -> Void)?
     var onWaypointRightClick: ((Int) -> Void)?
+    var onWaypointDragStart: (() -> Void)?
+    var onWaypointDrag: ((Int, Position) -> Void)?
 
     var body: some View {
         ZStack {
@@ -121,13 +129,35 @@ struct TrackPathView: View {
                 WaypointDot(
                     position: waypoint,
                     index: wpIndex,
+                    animationLabel: animationLabel(for: wpIndex),
                     color: color,
                     isSelected: isSelected,
                     onTap: { onWaypointTap?(wpIndex) },
-                    onRightClick: { onWaypointRightClick?(wpIndex) }
+                    onRightClick: { onWaypointRightClick?(wpIndex) },
+                    onDragStart: { onWaypointDragStart?() },
+                    onDrag: { newPos in onWaypointDrag?(wpIndex, newPos) }
                 )
             }
         }
+    }
+
+    /// Get animation label for a waypoint
+    /// - Waypoint 0: shows the animation of segment 0 (what plays AFTER this waypoint)
+    /// - Waypoint N (N > 0): shows the animation of segment N-1 (what plays TO reach this waypoint)
+    private func animationLabel(for waypointIndex: Int) -> String? {
+        guard !track.segments.isEmpty else { return nil }
+
+        if waypointIndex == 0 {
+            // First waypoint: show the animation that starts here
+            return track.segments.first?.animationName
+        } else {
+            // Other waypoints: show the animation that ends here (segment N-1)
+            let segmentIndex = waypointIndex - 1
+            if segmentIndex < track.segments.count {
+                return track.segments[segmentIndex].animationName
+            }
+        }
+        return nil
     }
 }
 
@@ -135,16 +165,22 @@ struct TrackPathView: View {
 struct WaypointDot: View {
     let position: Position
     let index: Int
+    let animationLabel: String?
     let color: Color
     let isSelected: Bool
     var onTap: (() -> Void)?
     var onRightClick: (() -> Void)?
+    var onDragStart: (() -> Void)?
+    var onDrag: ((Position) -> Void)?
+
+    @State private var isDragging = false
+    @State private var dragOffset: CGSize = .zero
 
     var body: some View {
         ZStack {
             // Outer ring
             Circle()
-                .fill(color)
+                .fill(isDragging ? color.opacity(0.7) : color)
                 .frame(width: isSelected ? 16 : 12, height: isSelected ? 16 : 12)
 
             // Inner dot
@@ -152,14 +188,50 @@ struct WaypointDot: View {
                 .fill(Color.white)
                 .frame(width: isSelected ? 8 : 6, height: isSelected ? 8 : 6)
 
-            // Index label
+            // Index label (above waypoint)
             Text("\(index + 1)")
                 .font(.system(size: 9, weight: .bold))
                 .foregroundColor(.white)
                 .offset(y: -18)
                 .shadow(color: .black, radius: 2)
+
+            // Animation label (below waypoint)
+            if let label = animationLabel {
+                Text(label)
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundColor(color)
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(
+                        RoundedRectangle(cornerRadius: 3)
+                            .fill(Color.white.opacity(0.85))
+                    )
+                    .offset(y: 20)
+            }
         }
-        .position(x: position.x, y: position.y)
+        .position(
+            x: position.x + dragOffset.width,
+            y: position.y + dragOffset.height
+        )
+        .gesture(
+            DragGesture(minimumDistance: 5)
+                .onChanged { value in
+                    if !isDragging {
+                        isDragging = true
+                        onDragStart?()
+                    }
+                    dragOffset = value.translation
+                    let newPos = Position(
+                        x: position.x + value.translation.width,
+                        y: position.y + value.translation.height
+                    )
+                    onDrag?(newPos)
+                }
+                .onEnded { _ in
+                    isDragging = false
+                    dragOffset = .zero
+                }
+        )
         .onTapGesture {
             onTap?()
         }

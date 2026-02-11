@@ -31,6 +31,11 @@ final class ChoreographerViewModel: ObservableObject {
     private let spriteLoader: SpriteLoader
     private var previewAnimationState: PocketGrisCore.AnimationState?
     private var previewTimer: Timer?
+
+    // Smooth cursor tracking
+    private var targetCursorPosition: CGPoint = .zero
+    private var displayLink: CVDisplayLink?
+    private let cursorSmoothingSpeed: CGFloat = 15.0  // Higher = faster catch-up
     private var undoStack: [PGScene] = []
     private let maxUndoLevels = 20
     private var suppressPreviewRestart = false
@@ -225,6 +230,39 @@ final class ChoreographerViewModel: ObservableObject {
         }
     }
 
+    /// Add a new waypoint (and segment) extending from the last waypoint
+    /// The new waypoint is offset from the last one for visibility
+    func extendTrack() {
+        guard let trackIdx = selectedTrackIndex, trackIdx < currentScene.tracks.count else { return }
+        let track = currentScene.tracks[trackIdx]
+        guard let lastWaypoint = track.waypoints.last else { return }
+
+        // Create new waypoint offset from the last one
+        let offset: Double = 100
+        let newPosition = Position(x: lastWaypoint.x + offset, y: lastWaypoint.y)
+
+        addWaypoint(at: newPosition)
+    }
+
+    /// Check if the selected track can be extended
+    var canExtendTrack: Bool {
+        guard let trackIdx = selectedTrackIndex, trackIdx < currentScene.tracks.count else { return false }
+        // Can extend if track has at least 1 waypoint
+        return !currentScene.tracks[trackIdx].waypoints.isEmpty
+    }
+
+    /// Move a waypoint to a new position
+    func moveWaypoint(trackIndex: Int, waypointIndex: Int, to newPosition: Position) {
+        guard trackIndex < currentScene.tracks.count,
+              waypointIndex < currentScene.tracks[trackIndex].waypoints.count else { return }
+        currentScene.tracks[trackIndex].waypoints[waypointIndex] = newPosition
+    }
+
+    /// Push undo state for waypoint drag start
+    func beginWaypointDrag() {
+        pushUndo()
+    }
+
     // MARK: - Segment Editing
 
     func updateSegment(trackIndex: Int, segmentIndex: Int, animationName: String? = nil, duration: TimeInterval? = nil, snapMode: SnapMode? = nil) {
@@ -240,6 +278,73 @@ final class ChoreographerViewModel: ObservableObject {
         if let snap = snapMode {
             currentScene.tracks[trackIndex].segments[segmentIndex].snapMode = snap
         }
+    }
+
+    func deleteSegment(trackIndex: Int, segmentIndex: Int) {
+        guard trackIndex < currentScene.tracks.count,
+              segmentIndex < currentScene.tracks[trackIndex].segments.count else { return }
+        pushUndo()
+
+        // Remove the segment
+        currentScene.tracks[trackIndex].segments.remove(at: segmentIndex)
+
+        // Remove the corresponding waypoint (segment N connects waypoints N and N+1)
+        // When deleting segment N, remove waypoint N+1 to maintain the invariant
+        let waypointIndexToRemove = segmentIndex + 1
+        if waypointIndexToRemove < currentScene.tracks[trackIndex].waypoints.count {
+            currentScene.tracks[trackIndex].waypoints.remove(at: waypointIndexToRemove)
+        }
+
+        // Update selection
+        if selectedSegmentIndex == segmentIndex {
+            selectedSegmentIndex = nil
+        } else if let sel = selectedSegmentIndex, sel > segmentIndex {
+            selectedSegmentIndex = sel - 1
+        }
+    }
+
+    func moveSegmentUp(trackIndex: Int, segmentIndex: Int) {
+        guard trackIndex < currentScene.tracks.count,
+              segmentIndex > 0,
+              segmentIndex < currentScene.tracks[trackIndex].segments.count else { return }
+        pushUndo()
+
+        // Swap segment properties only (animation, duration, snapMode)
+        // The waypoints stay in place - segments are metadata between fixed waypoints
+        currentScene.tracks[trackIndex].segments.swapAt(segmentIndex, segmentIndex - 1)
+
+        // Update selection to follow the moved segment
+        if selectedSegmentIndex == segmentIndex {
+            selectedSegmentIndex = segmentIndex - 1
+        } else if selectedSegmentIndex == segmentIndex - 1 {
+            selectedSegmentIndex = segmentIndex
+        }
+    }
+
+    func moveSegmentDown(trackIndex: Int, segmentIndex: Int) {
+        guard trackIndex < currentScene.tracks.count,
+              segmentIndex < currentScene.tracks[trackIndex].segments.count - 1 else { return }
+        pushUndo()
+
+        // Swap segment properties only (animation, duration, snapMode)
+        // The waypoints stay in place - segments are metadata between fixed waypoints
+        currentScene.tracks[trackIndex].segments.swapAt(segmentIndex, segmentIndex + 1)
+
+        // Update selection to follow the moved segment
+        if selectedSegmentIndex == segmentIndex {
+            selectedSegmentIndex = segmentIndex + 1
+        } else if selectedSegmentIndex == segmentIndex + 1 {
+            selectedSegmentIndex = segmentIndex
+        }
+    }
+
+    func canMoveSegmentUp(segmentIndex: Int) -> Bool {
+        segmentIndex > 0
+    }
+
+    func canMoveSegmentDown(trackIndex: Int, segmentIndex: Int) -> Bool {
+        guard trackIndex < currentScene.tracks.count else { return false }
+        return segmentIndex < currentScene.tracks[trackIndex].segments.count - 1
     }
 
     // MARK: - Scene Actions
@@ -267,7 +372,58 @@ final class ChoreographerViewModel: ObservableObject {
     // MARK: - Preview
 
     func updatePreviewPosition(_ point: CGPoint) {
-        previewPosition = point
+        targetCursorPosition = point
+        // If display link isn't running, update immediately for responsiveness
+        if displayLink == nil {
+            previewPosition = point
+        }
+    }
+
+    private func updateSmoothPosition() {
+        let dx = targetCursorPosition.x - previewPosition.x
+        let dy = targetCursorPosition.y - previewPosition.y
+
+        // Only interpolate if there's a noticeable difference
+        if abs(dx) > 0.5 || abs(dy) > 0.5 {
+            // Assume ~60fps for display link, so deltaTime ≈ 1/60
+            let deltaTime: CGFloat = 1.0 / 60.0
+            let factor = min(cursorSmoothingSpeed * deltaTime, 1.0)
+            previewPosition = CGPoint(
+                x: previewPosition.x + dx * factor,
+                y: previewPosition.y + dy * factor
+            )
+        } else {
+            previewPosition = targetCursorPosition
+        }
+    }
+
+    private func startDisplayLink() {
+        guard displayLink == nil else { return }
+
+        var link: CVDisplayLink?
+        CVDisplayLinkCreateWithActiveCGDisplays(&link)
+        guard let displayLink = link else { return }
+
+        let displayLinkOutputCallback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
+            guard let userInfo = userInfo else { return kCVReturnSuccess }
+            let viewModel = Unmanaged<ChoreographerViewModel>.fromOpaque(userInfo).takeUnretainedValue()
+            DispatchQueue.main.async {
+                viewModel.updateSmoothPosition()
+            }
+            return kCVReturnSuccess
+        }
+
+        let pointer = Unmanaged.passUnretained(self).toOpaque()
+        CVDisplayLinkSetOutputCallback(displayLink, displayLinkOutputCallback, pointer)
+        CVDisplayLinkStart(displayLink)
+        self.displayLink = displayLink
+    }
+
+    private func stopDisplayLink() {
+        if let link = displayLink {
+            CVDisplayLinkStop(link)
+            displayLink = nil
+        }
     }
 
     func startPreview() {
@@ -292,6 +448,9 @@ final class ChoreographerViewModel: ObservableObject {
             creature: creatureId, animation: animName, frame: animState.currentFrame
         )
 
+        // Start smooth cursor tracking
+        startDisplayLink()
+
         let interval = 1.0 / animation.fps
         previewTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             self?.advancePreview()
@@ -301,6 +460,7 @@ final class ChoreographerViewModel: ObservableObject {
     func stopPreview() {
         previewTimer?.invalidate()
         previewTimer = nil
+        stopDisplayLink()
         previewAnimationState = nil
         previewFramePath = nil
     }
@@ -326,6 +486,7 @@ final class ChoreographerViewModel: ObservableObject {
 
     deinit {
         previewTimer?.invalidate()
+        stopDisplayLink()
     }
 
     // MARK: - Track Colors

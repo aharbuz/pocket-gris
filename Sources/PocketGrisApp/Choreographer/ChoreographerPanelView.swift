@@ -71,8 +71,15 @@ struct ChoreographerPanelView: View {
 
             if let creatureId = viewModel.activeCreatureId,
                let creature = viewModel.creatures.first(where: { $0.id == creatureId }) {
-                Text("Animation")
-                    .font(.subheadline)
+                HStack {
+                    Text("Animation")
+                        .font(.subheadline)
+                    if viewModel.selectedSegmentIndex != nil {
+                        Text("(editing segment)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
                 Picker("Animation", selection: animationBinding) {
                     ForEach(creature.animations.keys.sorted(), id: \.self) { name in
                         Text(name).tag(name as String?)
@@ -170,8 +177,18 @@ struct ChoreographerPanelView: View {
 
     private var segmentListSection: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Segments")
-                .font(.headline)
+            HStack {
+                Text("Segments")
+                    .font(.headline)
+                Spacer()
+                Button(action: {
+                    viewModel.extendTrack()
+                }) {
+                    Image(systemName: "plus")
+                }
+                .disabled(!viewModel.canExtendTrack)
+                .help("Add waypoint and segment")
+            }
 
             if let trackIdx = viewModel.selectedTrackIndex,
                trackIdx < viewModel.currentScene.tracks.count {
@@ -191,6 +208,26 @@ struct ChoreographerPanelView: View {
                             Text(segment.animationName)
                                 .font(.system(size: 12))
                             Spacer()
+
+                            // Reorder buttons
+                            Button(action: {
+                                viewModel.moveSegmentUp(trackIndex: trackIdx, segmentIndex: segIdx)
+                            }) {
+                                Image(systemName: "chevron.up")
+                                    .font(.system(size: 10))
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(!viewModel.canMoveSegmentUp(segmentIndex: segIdx))
+
+                            Button(action: {
+                                viewModel.moveSegmentDown(trackIndex: trackIdx, segmentIndex: segIdx)
+                            }) {
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 10))
+                            }
+                            .buttonStyle(.borderless)
+                            .disabled(!viewModel.canMoveSegmentDown(trackIndex: trackIdx, segmentIndex: segIdx))
+
                             Text(String(format: "%.1fs", segment.duration))
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)
@@ -224,6 +261,29 @@ struct ChoreographerPanelView: View {
                     )
                     .onTapGesture {
                         viewModel.selectedSegmentIndex = segIdx
+                    }
+                    .contextMenu {
+                        Button(action: {
+                            viewModel.moveSegmentUp(trackIndex: trackIdx, segmentIndex: segIdx)
+                        }) {
+                            Label("Move Up", systemImage: "chevron.up")
+                        }
+                        .disabled(!viewModel.canMoveSegmentUp(segmentIndex: segIdx))
+
+                        Button(action: {
+                            viewModel.moveSegmentDown(trackIndex: trackIdx, segmentIndex: segIdx)
+                        }) {
+                            Label("Move Down", systemImage: "chevron.down")
+                        }
+                        .disabled(!viewModel.canMoveSegmentDown(trackIndex: trackIdx, segmentIndex: segIdx))
+
+                        Divider()
+
+                        Button(role: .destructive, action: {
+                            viewModel.deleteSegment(trackIndex: trackIdx, segmentIndex: segIdx)
+                        }) {
+                            Label("Delete Segment", systemImage: "trash")
+                        }
                     }
                 }
             } else {
@@ -296,8 +356,25 @@ struct ChoreographerPanelView: View {
 
     private var animationBinding: Binding<String?> {
         Binding(
-            get: { viewModel.activeAnimation },
-            set: { viewModel.activeAnimation = $0 }
+            get: {
+                // If a segment is selected, show its animation
+                if let trackIdx = viewModel.selectedTrackIndex,
+                   let segIdx = viewModel.selectedSegmentIndex,
+                   trackIdx < viewModel.currentScene.tracks.count,
+                   segIdx < viewModel.currentScene.tracks[trackIdx].segments.count {
+                    return viewModel.currentScene.tracks[trackIdx].segments[segIdx].animationName
+                }
+                return viewModel.activeAnimation
+            },
+            set: { newValue in
+                viewModel.activeAnimation = newValue
+                // Also update selected segment's animation if one is selected
+                if let trackIdx = viewModel.selectedTrackIndex,
+                   let segIdx = viewModel.selectedSegmentIndex,
+                   let anim = newValue {
+                    viewModel.updateSegment(trackIndex: trackIdx, segmentIndex: segIdx, animationName: anim)
+                }
+            }
         )
     }
 

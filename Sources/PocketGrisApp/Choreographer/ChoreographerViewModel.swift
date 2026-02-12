@@ -28,7 +28,17 @@ final class ChoreographerViewModel: ObservableObject {
     @Published var expandedSegmentIndices: [Int: Set<Int>] = [:]
 
     /// Pending segment settings (used when first segment will be created)
-    @Published var pendingAnimation: String = ""
+    @Published var pendingAnimation: String = "" {
+        didSet {
+            // Refresh preview when pending animation changes and no segments exist yet
+            if pendingAnimation != oldValue && isPlacing {
+                if let idx = selectedTrackIndex, idx < currentScene.tracks.count,
+                   currentScene.tracks[idx].segments.isEmpty {
+                    startPreview()
+                }
+            }
+        }
+    }
     @Published var pendingSnapMode: SnapMode = .none
     @Published var pendingDuration: TimeInterval = 2.0
 
@@ -58,13 +68,17 @@ final class ChoreographerViewModel: ObservableObject {
         return currentScene.tracks[idx].creatureId
     }
 
-    /// Derive activeAnimation from selected track's last segment, or first available
+    /// Derive activeAnimation from selected track's last segment, pending animation, or first available
     var activeAnimation: String? {
         guard let creatureId = activeCreatureId else { return nil }
         guard let idx = selectedTrackIndex, idx < currentScene.tracks.count else { return nil }
         let track = currentScene.tracks[idx]
         if let lastSegment = track.segments.last {
             return lastSegment.animationName
+        }
+        // Use pending animation if set
+        if !pendingAnimation.isEmpty {
+            return pendingAnimation
         }
         // Fall back to first available animation
         return spriteLoader.creature(id: creatureId)?.animations.keys.sorted().first
@@ -357,6 +371,8 @@ final class ChoreographerViewModel: ObservableObject {
         guard trackIndex < currentScene.tracks.count,
               segmentIndex < currentScene.tracks[trackIndex].segments.count else { return }
 
+        let isLastSegment = segmentIndex == currentScene.tracks[trackIndex].segments.count - 1
+
         if let anim = animationName {
             currentScene.tracks[trackIndex].segments[segmentIndex].animationName = anim
         }
@@ -365,6 +381,11 @@ final class ChoreographerViewModel: ObservableObject {
         }
         if let snap = snapMode {
             currentScene.tracks[trackIndex].segments[segmentIndex].snapMode = snap
+        }
+
+        // Refresh preview if animation changed on the last segment (affects activeAnimation)
+        if animationName != nil && isLastSegment && isPlacing {
+            startPreview()
         }
     }
 

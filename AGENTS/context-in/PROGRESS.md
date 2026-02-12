@@ -337,6 +337,20 @@ Follow-on polish based on user feedback:
 - Adding 3rd+ segment collapses existing and expands only the new one
 - Supports single-segment scenes (e.g., idling creature) without auto-collapse
 
+#### Choreographer Preview Fixes (UR-008)
+- **REQ-016**: Fixed creature preview not updating on switch (Route B)
+  - Modified `startPreview()` to set initial frame immediately without going through nil
+  - Prevents preview flicker/stale frame when switching creatures
+- **REQ-017**: Fixed animation preview not updating on switch (Route B)
+  - `updateSegment()` now calls `startPreview()` when animation changes on the last segment
+  - `pendingAnimation` didSet observer refreshes preview when pending animation changes
+  - `activeAnimation` computed property now checks `pendingAnimation` before falling back to first available
+
+**Untitled Scene Numbering (REQ-015):**
+- New scenes now increment: "Untitled Scene", "Untitled Scene 2", "Untitled Scene 3"
+- Scans existing scenes in storage to find next available number
+- Preserves existing scene's name when calling New Scene (only affects newly created scene)
+
 ### All Phases Complete (0-8 + Choreographer + UI Polish)
 
 The core feature set, choreographer, and UI polish are complete. Potential future work:

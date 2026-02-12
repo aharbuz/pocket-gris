@@ -435,32 +435,70 @@ Quit (Cmd+Q)
 - Tests: ✅ 118 tests passing (2 new)
 - Features: Scene deletion, scenes menu, per-behavior preview, performance improvements
 
+#### UI Reorganization (UR-011)
+
+**REQ-027: Add Scenes to Settings with Preview/Delete** (Route B) → 269eeb8
+- Added "Scene" section to Settings window behaviors list
+- Expandable disclosure control with animated chevron
+- Global scenes enabled toggle and weight slider (0.1-3.0)
+- Per-scene preview (play.fill icon) and delete (trash icon) buttons
+- Delete confirmation dialog before removal
+- "No saved scenes" placeholder when list is empty
+- Updated SettingsWindowController to pass sceneStorage
+- Updated AppDelegate to provide scene callbacks
+
+**REQ-026: Simplify Tray Menu** (Route A) → fb660cf
+- Removed Behaviors and Scenes submenus from tray menu
+- Removed 7 related methods: rebuildBehaviorsSubmenu, rebuildScenesSubmenu, previewBehavior, previewScene, deleteScene, toggleScenesEnabled, behaviorDisplayName
+- Menu now contains only essentials:
+  - Enabled toggle (Cmd+E)
+  - Trigger Random (Cmd+T)
+  - Settings... (Cmd+,)
+  - Choreographer... (Cmd+Shift+C)
+  - Quit (Cmd+Q)
+
+**New Menu Structure:**
+```
+[x] Enabled (Cmd+E)
+Trigger Random (Cmd+T)
+---
+Settings... (Cmd+,)
+Choreographer... (Cmd+Shift+C)
+---
+Quit (Cmd+Q)
+```
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 118 tests passing
+- Features: Simplified tray menu, scenes controls in Settings window
+
 ---
 
 ## Continuation Prompt
 
 ```
-Continue working on pocket-gris. All 8 phases + Animation Choreographer + Scene Management are complete.
+Continue working on pocket-gris. All 8 phases + Animation Choreographer + UI Reorganization are complete.
 
 Current state:
-- Phases 0-8 + Choreographer + Scene Management complete
+- Phases 0-8 + Choreographer + Scene Management + UI Reorganization complete
 - 118 unit tests passing
 - 6 behavior types: peek, traverse, stationary, climber, cursorReactive (follow), scene
 - Animation Choreographer with visual waypoint editor, multi-track playback, scene deletion
-- Menu bar: Behaviors submenu (per-behavior preview), Scenes submenu (per-scene preview/delete)
-- Settings UI with interval/creature/behavior configuration, per-behavior preview buttons
+- Simplified tray menu: Enabled, Trigger Random, Settings, Choreographer, Quit
+- Settings UI now includes:
+  - Interval/creature/behavior configuration
+  - Per-behavior preview buttons
+  - Scene section with expandable scene list, per-scene preview/delete
 - Multi-monitor support, launch at login (SMAppService)
 - Two creatures: "gris" (pixel art, 12 animations) and "pig-gnome" (pixel art, walk + idle)
 
-Recent changes (UR-010):
-- Scene deletion from choreographer and menu
-- Scenes submenu with global toggle and per-scene preview/delete
-- Behaviors submenu with per-behavior preview
-- Per-behavior preview buttons in Settings
-- Performance: lazy statusItem, cursor smoothing speed 60 (near-instant)
+Recent changes (UR-011):
+- Moved behavior/scene preview controls from tray menu to Settings window
+- Scenes section in Settings styled like behaviors with expandable subitems
+- Simplified tray menu (removed Behaviors/Scenes submenus)
 
 To test: swift build && swift test
 To run app: swift run PocketGrisApp
 To open choreographer: Cmd+Shift+C (while app is running)
-To test behaviors headlessly: swift run pocketgris test behavior peek --creature gris --frames 500 --compact
 ```

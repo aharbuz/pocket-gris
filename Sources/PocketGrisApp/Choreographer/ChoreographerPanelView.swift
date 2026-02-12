@@ -29,6 +29,20 @@ struct ChoreographerPanelView: View {
             .padding()
         }
         .frame(minWidth: 300, maxWidth: 400)
+        .alert(
+            "Delete Scene",
+            isPresented: $viewModel.showDeleteConfirmation,
+            presenting: viewModel.sceneToDelete
+        ) { scene in
+            Button("Cancel", role: .cancel) {
+                viewModel.cancelDeleteScene()
+            }
+            Button("Delete", role: .destructive) {
+                viewModel.confirmDeleteScene()
+            }
+        } message: { scene in
+            Text("Are you sure you want to delete \"\(scene.name)\"? This action cannot be undone.")
+        }
     }
 
     // MARK: - Sections
@@ -533,8 +547,14 @@ struct ChoreographerPanelView: View {
                         Text("No saved scenes")
                     }
                     ForEach(scenes, id: \.id) { scene in
-                        Button(scene.name) {
-                            viewModel.loadScene(scene)
+                        Menu(scene.name) {
+                            Button("Open") {
+                                viewModel.loadScene(scene)
+                            }
+                            Divider()
+                            Button("Delete", role: .destructive) {
+                                viewModel.requestDeleteScene(scene)
+                            }
                         }
                     }
                 }

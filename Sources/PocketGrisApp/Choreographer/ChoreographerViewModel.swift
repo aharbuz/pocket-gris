@@ -42,6 +42,10 @@ final class ChoreographerViewModel: ObservableObject {
     @Published var pendingSnapMode: SnapMode = .none
     @Published var pendingDuration: TimeInterval = 2.0
 
+    // Delete confirmation state
+    @Published var sceneToDelete: PGScene?
+    @Published var showDeleteConfirmation: Bool = false
+
     // Preview state
     @Published var previewPosition: CGPoint = .zero
     @Published var previewFramePath: String?
@@ -59,6 +63,7 @@ final class ChoreographerViewModel: ObservableObject {
     private let maxUndoLevels = 20
     var onSave: ((PGScene) -> Void)?
     var onClose: (() -> Void)?
+    var onSceneDeleted: (() -> Void)?
 
     var canUndo: Bool { !undoStack.isEmpty }
 
@@ -575,6 +580,40 @@ final class ChoreographerViewModel: ObservableObject {
         selectedTrackIndex = scene.tracks.isEmpty ? nil : 0
         selectedSegmentIndex = nil
         isPlacing = false
+    }
+
+    /// Request deletion confirmation for a scene
+    func requestDeleteScene(_ scene: PGScene) {
+        sceneToDelete = scene
+        showDeleteConfirmation = true
+    }
+
+    /// Confirm and execute scene deletion
+    func confirmDeleteScene() {
+        guard let scene = sceneToDelete else { return }
+
+        do {
+            try sceneStorage?.delete(id: scene.id)
+
+            // If we deleted the currently loaded scene, create a new one
+            if currentScene.id == scene.id {
+                newScene()
+            }
+
+            onSceneDeleted?()
+        } catch {
+            // Log error but don't crash - the scene may have already been deleted
+            print("Failed to delete scene '\(scene.name)': \(error)")
+        }
+
+        sceneToDelete = nil
+        showDeleteConfirmation = false
+    }
+
+    /// Cancel scene deletion
+    func cancelDeleteScene() {
+        sceneToDelete = nil
+        showDeleteConfirmation = false
     }
 
     // MARK: - Preview

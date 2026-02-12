@@ -55,6 +55,9 @@ final class ChoreographerController {
         vm.onClose = { [weak self] in
             self?.close()
         }
+        vm.onSceneDeleted = { [weak self] in
+            self?.reloadScenes()
+        }
         self.viewModel = vm
 
         // Track scene changes to persist last opened scene
@@ -109,12 +112,16 @@ final class ChoreographerController {
             try sceneStorage.save(scene: scene)
             persistLastSceneId(scene.id)
             print("Scene saved: \(scene.name)")
-            // Notify app to reload scenes into scheduler
-            if let appDelegate = NSApp.delegate as? AppDelegate {
-                appDelegate.reloadScenes()
-            }
+            reloadScenes()
         } catch {
             print("Failed to save scene: \(error)")
+        }
+    }
+
+    private func reloadScenes() {
+        // Notify app to reload scenes into scheduler
+        if let appDelegate = NSApp.delegate as? AppDelegate {
+            appDelegate.reloadScenes()
         }
     }
 

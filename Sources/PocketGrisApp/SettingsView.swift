@@ -133,13 +133,16 @@ struct SettingsView: View {
 
                 Toggle("", isOn: $viewModel.behaviorsEnabled)
                     .labelsHidden()
-                    .onChange(of: viewModel.behaviorsEnabled) { _ in
+                    .onChange(of: viewModel.behaviorsEnabled) { enabled in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            viewModel.handleBehaviorsToggle(enabled: enabled)
+                        }
                         viewModel.applySettings()
                     }
             }
 
-            // Individual behaviors (shown when expanded)
-            if viewModel.behaviorsExpanded {
+            // Individual behaviors (shown when expanded AND enabled)
+            if viewModel.behaviorsExpanded && viewModel.behaviorsEnabled {
                 ForEach(BehaviorType.allCases, id: \.self) { behaviorType in
                     // Skip .scene - scenes are managed separately in the Scenes submenu
                     if behaviorType != .scene {
@@ -218,13 +221,16 @@ struct SettingsView: View {
 
                     Toggle("", isOn: $viewModel.scenesEnabled)
                         .labelsHidden()
-                        .onChange(of: viewModel.scenesEnabled) { _ in
+                        .onChange(of: viewModel.scenesEnabled) { enabled in
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                viewModel.handleScenesToggle(enabled: enabled)
+                            }
                             viewModel.applySettings()
                         }
                 }
 
-                // Global weight slider (shown when expanded)
-                if viewModel.scenesExpanded {
+                // Global weight slider (shown when expanded AND enabled)
+                if viewModel.scenesExpanded && viewModel.scenesEnabled {
                     HStack {
                         Text("Weight")
                             .font(.caption)
@@ -248,8 +254,8 @@ struct SettingsView: View {
                 }
             }
 
-            // Individual scenes (shown when expanded)
-            if viewModel.scenesExpanded {
+            // Individual scenes (shown when expanded AND enabled)
+            if viewModel.scenesExpanded && viewModel.scenesEnabled {
                 if viewModel.scenes.isEmpty {
                     Text("No saved scenes")
                         .font(.caption)
@@ -357,10 +363,12 @@ final class SettingsViewModel: ObservableObject {
     @Published var behaviorWeights: [String: Double]
     @Published var behaviorsEnabled: Bool
     @Published var behaviorsExpanded: Bool = true
+    private var behaviorsExpandedBeforeDisable: Bool = true
 
     // Scene-related state
     @Published var scenesEnabled: Bool
     @Published var scenesExpanded: Bool = true
+    private var scenesExpandedBeforeDisable: Bool = true
     @Published var sceneWeights: [String: Double]
     @Published var enabledScenes: Set<String>
     @Published var globalSceneWeight: Double = 1.0
@@ -526,6 +534,28 @@ final class SettingsViewModel: ObservableObject {
     func clampIntervals() {
         if maxInterval < minInterval {
             maxInterval = minInterval
+        }
+    }
+
+    func handleBehaviorsToggle(enabled: Bool) {
+        if enabled {
+            // Restore previous expanded state
+            behaviorsExpanded = behaviorsExpandedBeforeDisable
+        } else {
+            // Remember current state and collapse
+            behaviorsExpandedBeforeDisable = behaviorsExpanded
+            behaviorsExpanded = false
+        }
+    }
+
+    func handleScenesToggle(enabled: Bool) {
+        if enabled {
+            // Restore previous expanded state
+            scenesExpanded = scenesExpandedBeforeDisable
+        } else {
+            // Remember current state and collapse
+            scenesExpandedBeforeDisable = scenesExpanded
+            scenesExpanded = false
         }
     }
 

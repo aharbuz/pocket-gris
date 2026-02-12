@@ -3,7 +3,14 @@ import PocketGrisCore
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
 
-    private var statusItem: NSStatusItem!
+    private lazy var statusItem: NSStatusItem = {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let button = item.button {
+            button.image = NSImage(systemSymbolName: "pawprint.fill", accessibilityDescription: "Pocket Gris")
+            button.image?.isTemplate = true
+        }
+        return item
+    }()
     private var creatureWindow: CreatureWindow?
     private let spriteLoader = SpriteLoader()
     private let scheduler = BehaviorScheduler()
@@ -38,13 +45,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Menu Bar
 
     private func setupMenuBar() {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-
-        if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "pawprint.fill", accessibilityDescription: "Pocket Gris")
-            button.image?.isTemplate = true
-        }
-
         let menu = NSMenu()
         menu.autoenablesItems = false  // Prevents hover lag from automatic enable/disable checks
 

@@ -58,7 +58,7 @@ final class ChoreographerViewModel: ObservableObject {
     // Smooth cursor tracking
     private var targetCursorPosition: CGPoint = .zero
     private var displayLink: CVDisplayLink?
-    private let cursorSmoothingSpeed: CGFloat = 30.0  // Higher = faster catch-up (30 gives ~50% per frame)
+    private let cursorSmoothingSpeed: CGFloat = 60.0  // Higher = faster catch-up (60 gives near-instant tracking)
     private var undoStack: [PGScene] = []
     private let maxUndoLevels = 20
     var onSave: ((PGScene) -> Void)?

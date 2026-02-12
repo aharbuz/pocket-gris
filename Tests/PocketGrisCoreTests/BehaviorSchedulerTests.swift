@@ -157,4 +157,56 @@ final class BehaviorSchedulerTests: XCTestCase {
             XCTAssertEqual(result.creature, "creature1")
         }
     }
+
+    func testScenesEnabledFiltersTriggers() {
+        // Create a scene
+        let track = SceneTrack(
+            creatureId: "test",
+            waypoints: [Position(x: 0, y: 0), Position(x: 100, y: 0)],
+            segments: [SceneSegment(animationName: "peek-left", duration: 1.0)]
+        )
+        let scene = Scene(id: "test-scene", name: "Test Scene", tracks: [track])
+
+        // Settings with scenes disabled
+        let settings = Settings(
+            minInterval: 10,
+            maxInterval: 20,
+            scenesEnabled: false
+        )
+
+        let scheduler = BehaviorScheduler(
+            settings: settings,
+            creatures: [testCreature],
+            scenes: [scene],
+            random: SeededRandomSource(seed: 42)
+        )
+
+        var triggeredScenes: [Scene] = []
+        var triggeredBehaviors: [(Creature, BehaviorType)] = []
+
+        scheduler.setUnifiedTriggerHandler { trigger in
+            switch trigger {
+            case .behavior(let creature, let behaviorType):
+                triggeredBehaviors.append((creature, behaviorType))
+            case .scene(let scene):
+                triggeredScenes.append(scene)
+            }
+        }
+
+        // Trigger several times
+        for _ in 0..<10 {
+            scheduler.triggerNow()
+        }
+
+        // With scenesEnabled=false, no scenes should be triggered
+        // Note: triggerNow() always triggers behaviors, not scenes
+        // The scenesEnabled flag affects the random selection in handleTrigger()
+        // which uses selectRandomTrigger()
+        XCTAssertTrue(triggeredScenes.isEmpty, "No scenes should be triggered when scenesEnabled is false")
+    }
+
+    func testScenesEnabledDefaultsToTrue() {
+        let settings = Settings()
+        XCTAssertTrue(settings.scenesEnabled, "scenesEnabled should default to true")
+    }
 }

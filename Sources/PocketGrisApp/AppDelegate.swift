@@ -11,10 +11,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let windowTracker = AccessibilityWindowTracker()
     private let cursorTracker = GlobalCursorTracker()
     private var isEnabled = true
+    private var scenesEnabled = true
     private let settingsWindowController = SettingsWindowController()
     private let sceneStorage = SceneStorage()
     private let scenePlayer = ScenePlayer()
     private var choreographerController: ChoreographerController?
+    private var scenesSubmenu: NSMenu?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -52,6 +54,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         enableItem.state = isEnabled ? .on : .off
         menu.addItem(enableItem)
 
+        // Scenes submenu
+        let scenesItem = NSMenuItem(title: "Scenes", action: nil, keyEquivalent: "")
+        scenesSubmenu = NSMenu()
+        scenesItem.submenu = scenesSubmenu
+        menu.addItem(scenesItem)
+        rebuildScenesSubmenu()
+
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
 
@@ -63,6 +72,84 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
 
         statusItem.menu = menu
+    }
+
+    private func rebuildScenesSubmenu() {
+        guard let submenu = scenesSubmenu else { return }
+        submenu.removeAllItems()
+        submenu.autoenablesItems = false
+
+        // Global toggle for scenes
+        let toggleItem = NSMenuItem(title: "Enabled", action: #selector(toggleScenesEnabled), keyEquivalent: "")
+        toggleItem.state = scenesEnabled ? .on : .off
+        submenu.addItem(toggleItem)
+        submenu.addItem(NSMenuItem.separator())
+
+        // List all scenes
+        let scenes = sceneStorage.loadAll()
+        if scenes.isEmpty {
+            let emptyItem = NSMenuItem(title: "No scenes", action: nil, keyEquivalent: "")
+            emptyItem.isEnabled = false
+            submenu.addItem(emptyItem)
+        } else {
+            for scene in scenes {
+                let sceneItem = NSMenuItem(title: scene.name, action: nil, keyEquivalent: "")
+
+                // Create submenu for each scene with Preview and Delete options
+                let sceneActions = NSMenu()
+                sceneActions.autoenablesItems = false
+
+                let previewItem = NSMenuItem(title: "Preview", action: #selector(previewScene(_:)), keyEquivalent: "")
+                previewItem.representedObject = scene
+                previewItem.isEnabled = scene.isPlayable
+                sceneActions.addItem(previewItem)
+
+                let deleteItem = NSMenuItem(title: "Delete", action: #selector(deleteScene(_:)), keyEquivalent: "")
+                deleteItem.representedObject = scene
+                sceneActions.addItem(deleteItem)
+
+                sceneItem.submenu = sceneActions
+                submenu.addItem(sceneItem)
+            }
+        }
+    }
+
+    @objc private func toggleScenesEnabled() {
+        scenesEnabled.toggle()
+
+        var settings = Settings.load()
+        settings.scenesEnabled = scenesEnabled
+        try? settings.save()
+        scheduler.updateSettings(settings)
+
+        rebuildScenesSubmenu()
+    }
+
+    @objc private func previewScene(_ sender: NSMenuItem) {
+        guard let scene = sender.representedObject as? Scene else { return }
+        playScene(scene)
+    }
+
+    @objc private func deleteScene(_ sender: NSMenuItem) {
+        guard let scene = sender.representedObject as? Scene else { return }
+
+        // Show confirmation alert
+        let alert = NSAlert()
+        alert.messageText = "Delete Scene"
+        alert.informativeText = "Are you sure you want to delete \"\(scene.name)\"? This cannot be undone."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Delete")
+        alert.addButton(withTitle: "Cancel")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            do {
+                try sceneStorage.delete(id: scene.id)
+                loadScenes()  // Refresh scheduler's scene list
+                rebuildScenesSubmenu()
+            } catch {
+                print("Failed to delete scene: \(error)")
+            }
+        }
     }
 
     @objc private func triggerNow() {
@@ -212,12 +299,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func reloadScenes() {
         loadScenes()
+        rebuildScenesSubmenu()
     }
 
     private func startScheduler() {
         let settings = Settings.load()
         scheduler.updateSettings(settings)
         isEnabled = settings.enabled
+        scenesEnabled = settings.scenesEnabled
 
         scheduler.setUnifiedTriggerHandler { [weak self] trigger in
             switch trigger {

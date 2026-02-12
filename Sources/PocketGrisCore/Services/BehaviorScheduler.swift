@@ -197,12 +197,14 @@ public final class BehaviorScheduler: @unchecked Sendable {
             }
         }
 
-        // Add scene triggers
-        let playableScenes = scenes.filter { $0.isPlayable }
-        for scene in playableScenes {
-            let weight = settings.sceneWeights[scene.id] ?? 1.0
-            if weight > 0 {
-                pool.append((.scene(scene), weight))
+        // Add scene triggers (only if scenes are enabled)
+        if settings.scenesEnabled {
+            let playableScenes = scenes.filter { $0.isPlayable }
+            for scene in playableScenes {
+                let weight = settings.sceneWeights[scene.id] ?? 1.0
+                if weight > 0 {
+                    pool.append((.scene(scene), weight))
+                }
             }
         }
 

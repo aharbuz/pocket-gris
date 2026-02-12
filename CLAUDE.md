@@ -114,7 +114,9 @@ Background removal is done manually on the exported raw frames, then processed
 - Multi-monitor support - Random screen selection for creature appearances
 - Menu bar app with IPC
 - Smooth animation system with easing
-- 116 unit tests
+- 118 unit tests
+- Scene management: delete scenes, scenes list in menu bar
+- Per-behavior/scene preview buttons (replaced random trigger)
 
 ### Potential Future Work
 - More creatures and animations

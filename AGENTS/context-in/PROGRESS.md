@@ -376,27 +376,88 @@ The core feature set, choreographer, and UI polish are complete. Potential futur
 
 ---
 
+## Session: 2026-02-12 (continued)
+
+#### Scene Management & Preview System (UR-010)
+
+**REQ-022: Scene Deletion** (Route B) → 9e4d5f6
+- Added `deleteScene(id:)` methods to ChoreographerViewModel
+- Added confirmation dialog via `.alert()` modifier in ChoreographerPanelView
+- Modified Load menu to show scenes as submenus with "Open" and "Delete" options
+- Connected `onSceneDeleted` callback in ChoreographerController to refresh scheduler
+
+**REQ-023: Scenes List in Settings Menu** (Route B) → abcbf2b
+- Added `scenesEnabled: Bool` property to Settings (persisted)
+- Added "Scenes" submenu to menu bar with:
+  - Global "Enabled" toggle
+  - Per-scene submenus with Preview/Delete options
+  - Dynamic refresh on scene changes
+- Modified BehaviorScheduler to respect `settings.scenesEnabled`
+- Added 2 new tests for scenes filtering
+
+**REQ-024: Per-Behavior Preview Buttons** (Route B) → b3e9c75
+- Added play button (play.fill icon) per behavior in SettingsView
+- Added "Behaviors" submenu to menu bar with per-behavior preview items
+- Renamed "Trigger Now" to "Trigger Random" and moved below Enabled toggle
+- Removed "Test Random Behavior" button (replaced by per-item preview)
+- Hidden `.scene` type from behaviors list (managed in Scenes submenu)
+- Added `previewBehavior(_:)` method to SettingsViewModel
+
+**REQ-025: Menu Bar & Cursor Performance** (Route B) → 0440948
+- **Investigation findings:**
+  - Menu bar: statusItem creation timing, deep submenu nesting
+  - Cursor: smoothing at 30.0 (~50% catch-up), async dispatch latency
+  - Compared with Bluesnooze (XIB-connected menu pattern)
+- **Implemented fixes:**
+  - Changed `statusItem` from implicitly unwrapped optional to lazy property
+  - Increased `cursorSmoothingSpeed` from 30.0 to 60.0 (near-instant tracking)
+- **Documented recommendations for future:**
+  - NSMenuDelegate for `menuWillOpen(_:)` refresh
+  - CADisplayLink instead of CVDisplayLink
+  - Unify animation/position timing
+
+**New Menu Structure:**
+```
+[x] Enabled (Cmd+E)
+Trigger Random (Cmd+T)
+---
+Behaviors > Peek, Traverse, Stationary, Climber, Follow Cursor
+Scenes > [x] Enabled, Scene1 > Preview/Delete, ...
+---
+Settings... (Cmd+,)
+Choreographer... (Cmd+Shift+C)
+---
+Quit (Cmd+Q)
+```
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 118 tests passing (2 new)
+- Features: Scene deletion, scenes menu, per-behavior preview, performance improvements
+
+---
+
 ## Continuation Prompt
 
 ```
-Continue working on pocket-gris. All 8 phases + Animation Choreographer are complete.
+Continue working on pocket-gris. All 8 phases + Animation Choreographer + Scene Management are complete.
 
 Current state:
-- Phases 0-8 + Choreographer complete
-- 116 unit tests passing
+- Phases 0-8 + Choreographer + Scene Management complete
+- 118 unit tests passing
 - 6 behavior types: peek, traverse, stationary, climber, cursorReactive (follow), scene
-- Animation Choreographer with visual waypoint editor and multi-track playback
-- Settings UI with interval/creature/behavior configuration
+- Animation Choreographer with visual waypoint editor, multi-track playback, scene deletion
+- Menu bar: Behaviors submenu (per-behavior preview), Scenes submenu (per-scene preview/delete)
+- Settings UI with interval/creature/behavior configuration, per-behavior preview buttons
 - Multi-monitor support, launch at login (SMAppService)
 - Two creatures: "gris" (pixel art, 12 animations) and "pig-gnome" (pixel art, walk + idle)
 
-Key choreographer files:
-- Sources/PocketGrisCore/Scene/ - SceneTypes, SceneStorage
-- Sources/PocketGrisCore/Behavior/ScriptedBehavior.swift - Track playback behavior
-- Sources/PocketGrisApp/ScenePlayer.swift - Multi-track coordinator
-- Sources/PocketGrisApp/Choreographer/ - 6 files (Controller, ViewModel, Overlay, Panel)
-- Tests/PocketGrisCoreTests/SceneTests.swift - 13 tests
-- Tests/PocketGrisCoreTests/ScriptedBehaviorTests.swift - 16 tests
+Recent changes (UR-010):
+- Scene deletion from choreographer and menu
+- Scenes submenu with global toggle and per-scene preview/delete
+- Behaviors submenu with per-behavior preview
+- Per-behavior preview buttons in Settings
+- Performance: lazy statusItem, cursor smoothing speed 60 (near-instant)
 
 To test: swift build && swift test
 To run app: swift run PocketGrisApp

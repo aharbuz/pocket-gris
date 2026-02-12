@@ -64,7 +64,7 @@ struct SettingsView: View {
                         .monospacedDigit()
                 }
                 Slider(value: $viewModel.minInterval, in: 60...3600, step: 60) {
-                    Text("Min")
+                    EmptyView()
                 } onEditingChanged: { _ in
                     viewModel.clampIntervals()
                     viewModel.applySettings()
@@ -78,7 +78,7 @@ struct SettingsView: View {
                         .monospacedDigit()
                 }
                 Slider(value: $viewModel.maxInterval, in: 60...7200, step: 60) {
-                    Text("Max")
+                    EmptyView()
                 } onEditingChanged: { _ in
                     viewModel.clampIntervals()
                     viewModel.applySettings()
@@ -175,7 +175,7 @@ struct SettingsView: View {
                                         in: 0.1...3.0,
                                         step: 0.1
                                     ) {
-                                        Text("Weight")
+                                        EmptyView()
                                     } onEditingChanged: { _ in
                                         viewModel.applySettings()
                                     }
@@ -240,7 +240,7 @@ struct SettingsView: View {
                             in: 0.1...3.0,
                             step: 0.1
                         ) {
-                            Text("Weight")
+                            EmptyView()
                         } onEditingChanged: { _ in
                             viewModel.applySettings()
                         }
@@ -316,7 +316,7 @@ struct SettingsView: View {
                                         in: 0.1...3.0,
                                         step: 0.1
                                     ) {
-                                        Text("Weight")
+                                        EmptyView()
                                     } onEditingChanged: { _ in
                                         viewModel.applySettings()
                                     }

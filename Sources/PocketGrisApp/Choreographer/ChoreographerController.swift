@@ -36,7 +36,7 @@ final class ChoreographerController {
             close()
         }
 
-        let vm = ChoreographerViewModel(scene: scene, spriteLoader: spriteLoader)
+        let vm = ChoreographerViewModel(scene: scene, spriteLoader: spriteLoader, sceneStorage: sceneStorage)
         vm.onSave = { [weak self] scene in
             self?.saveScene(scene)
         }

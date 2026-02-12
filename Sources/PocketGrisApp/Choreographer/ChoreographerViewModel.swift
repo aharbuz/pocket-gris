@@ -37,6 +37,7 @@ final class ChoreographerViewModel: ObservableObject {
     @Published var previewFramePath: String?
 
     private let spriteLoader: SpriteLoader
+    private let sceneStorage: PGSceneStorage?
     private var previewAnimationState: PocketGrisCore.AnimationState?
     private var previewTimer: Timer?
 
@@ -103,9 +104,10 @@ final class ChoreographerViewModel: ObservableObject {
         return currentScene.tracks[idx]
     }
 
-    init(scene: PGScene? = nil, spriteLoader: SpriteLoader) {
-        self.currentScene = scene ?? PGScene()
+    init(scene: PGScene? = nil, spriteLoader: SpriteLoader, sceneStorage: PGSceneStorage? = nil) {
         self.spriteLoader = spriteLoader
+        self.sceneStorage = sceneStorage
+        self.currentScene = scene ?? PGScene(name: Self.generateUniqueSceneName(storage: sceneStorage, existingScene: nil))
 
         // Determine default creature: prefer "gris", fall back to first available
         let allCreatures = spriteLoader.allCreatures()
@@ -468,10 +470,62 @@ final class ChoreographerViewModel: ObservableObject {
     }
 
     func newScene() {
-        currentScene = PGScene()
+        let name = Self.generateUniqueSceneName(storage: sceneStorage, existingScene: currentScene)
+        currentScene = PGScene(name: name)
         selectedTrackIndex = nil
         selectedSegmentIndex = nil
         isPlacing = false
+    }
+
+    // MARK: - Scene Name Generation
+
+    /// Generates a unique "Untitled Scene" name by checking existing scenes
+    /// Returns "Untitled Scene" for the first one, then "Untitled Scene 2", "Untitled Scene 3", etc.
+    private static func generateUniqueSceneName(storage: PGSceneStorage?, existingScene: PGScene?) -> String {
+        let basePrefix = "Untitled Scene"
+
+        // Collect all existing scene names
+        var existingNames = Set<String>()
+        if let storage = storage {
+            for scene in storage.loadAll() {
+                existingNames.insert(scene.name)
+            }
+        }
+        // Also include the current scene's name if it exists
+        if let existing = existingScene {
+            existingNames.insert(existing.name)
+        }
+
+        // If no untitled scenes exist, use the base name
+        if !existingNames.contains(basePrefix) {
+            return basePrefix
+        }
+
+        // Find the next available number
+        // Check for "Untitled Scene N" where N >= 2
+        var usedNumbers = Set<Int>()
+        usedNumbers.insert(1) // "Untitled Scene" counts as 1
+
+        for name in existingNames {
+            if name == basePrefix {
+                continue
+            }
+            // Check for "Untitled Scene N" pattern
+            if name.hasPrefix(basePrefix + " ") {
+                let suffix = name.dropFirst(basePrefix.count + 1)
+                if let number = Int(suffix) {
+                    usedNumbers.insert(number)
+                }
+            }
+        }
+
+        // Find the smallest unused number >= 2
+        var nextNumber = 2
+        while usedNumbers.contains(nextNumber) {
+            nextNumber += 1
+        }
+
+        return "\(basePrefix) \(nextNumber)"
     }
 
     func loadScene(_ scene: PGScene) {

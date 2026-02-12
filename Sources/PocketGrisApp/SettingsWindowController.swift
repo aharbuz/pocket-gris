@@ -11,6 +11,7 @@ final class SettingsWindowController {
         sceneStorage: PocketGrisCore.SceneStorage,
         onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void,
         onPreviewScene: @escaping (PocketGrisCore.Scene) -> Void,
+        onEditScene: @escaping (PocketGrisCore.Scene) -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void
     ) {
         // If window already exists, just bring it to front
@@ -25,6 +26,7 @@ final class SettingsWindowController {
             sceneStorage: sceneStorage,
             onTestBehavior: onTestBehavior,
             onPreviewScene: onPreviewScene,
+            onEditScene: onEditScene,
             onSettingsChanged: onSettingsChanged
         )
 

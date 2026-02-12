@@ -15,6 +15,7 @@ struct SettingsView: View {
         sceneStorage: PGSceneStorageLocal,
         onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void,
         onPreviewScene: @escaping (PGSceneLocal) -> Void,
+        onEditScene: @escaping (PGSceneLocal) -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void
     ) {
         _viewModel = StateObject(wrappedValue: SettingsViewModel(
@@ -22,6 +23,7 @@ struct SettingsView: View {
             sceneStorage: sceneStorage,
             onTestBehavior: onTestBehavior,
             onPreviewScene: onPreviewScene,
+            onEditScene: onEditScene,
             onSettingsChanged: onSettingsChanged
         ))
     }
@@ -110,57 +112,83 @@ struct SettingsView: View {
 
     private var behaviorsSection: some View {
         Section {
-            ForEach(BehaviorType.allCases, id: \.self) { behaviorType in
-                // Skip .scene - scenes are managed separately in the Scenes submenu
-                if behaviorType != .scene {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Toggle(isOn: viewModel.behaviorEnabledBinding(for: behaviorType)) {
-                                Text(viewModel.behaviorDisplayName(behaviorType))
-                            }
-                            .onChange(of: viewModel.behaviorWeights[behaviorType.rawValue]) { _ in
-                                viewModel.applySettings()
-                            }
+            // Behaviors header row with chevron and master toggle
+            HStack {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        viewModel.behaviorsExpanded.toggle()
+                    }
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .rotationEffect(.degrees(viewModel.behaviorsExpanded ? 90 : 0))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
 
-                            Spacer()
+                Text("Behaviors")
+                    .fontWeight(.medium)
 
-                            Button {
-                                viewModel.previewBehavior(behaviorType)
-                            } label: {
-                                Image(systemName: "play.fill")
-                                    .font(.caption)
-                            }
-                            .buttonStyle(.borderless)
-                            .help("Preview \(viewModel.behaviorDisplayName(behaviorType))")
-                        }
+                Spacer()
 
-                        if viewModel.isBehaviorEnabled(behaviorType) {
+                Toggle("", isOn: $viewModel.behaviorsEnabled)
+                    .labelsHidden()
+                    .onChange(of: viewModel.behaviorsEnabled) { _ in
+                        viewModel.applySettings()
+                    }
+            }
+
+            // Individual behaviors (shown when expanded)
+            if viewModel.behaviorsExpanded {
+                ForEach(BehaviorType.allCases, id: \.self) { behaviorType in
+                    // Skip .scene - scenes are managed separately in the Scenes submenu
+                    if behaviorType != .scene {
+                        VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Text("Weight")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Slider(
-                                    value: viewModel.behaviorWeightBinding(for: behaviorType),
-                                    in: 0.1...3.0,
-                                    step: 0.1
-                                ) {
-                                    Text("Weight")
-                                } onEditingChanged: { _ in
+                                Button {
+                                    viewModel.previewBehavior(behaviorType)
+                                } label: {
+                                    Image(systemName: "play.fill")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Preview \(viewModel.behaviorDisplayName(behaviorType))")
+
+                                Toggle(isOn: viewModel.behaviorEnabledBinding(for: behaviorType)) {
+                                    Text(viewModel.behaviorDisplayName(behaviorType))
+                                }
+                                .onChange(of: viewModel.behaviorWeights[behaviorType.rawValue]) { _ in
                                     viewModel.applySettings()
                                 }
-                                Text(String(format: "%.1f", viewModel.behaviorWeights[behaviorType.rawValue] ?? 1.0))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .monospacedDigit()
-                                    .frame(width: 30)
                             }
-                            .padding(.leading, 20)
+
+                            if viewModel.isBehaviorEnabled(behaviorType) {
+                                HStack {
+                                    Text("Weight")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Slider(
+                                        value: viewModel.behaviorWeightBinding(for: behaviorType),
+                                        in: 0.1...3.0,
+                                        step: 0.1
+                                    ) {
+                                        Text("Weight")
+                                    } onEditingChanged: { _ in
+                                        viewModel.applySettings()
+                                    }
+                                    Text(String(format: "%.1f", viewModel.behaviorWeights[behaviorType.rawValue] ?? 1.0))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .monospacedDigit()
+                                        .frame(width: 30)
+                                }
+                                .padding(.leading, 20)
+                            }
                         }
+                        .padding(.leading, 16)
                     }
                 }
             }
-        } header: {
-            Text("Behaviors")
         } footer: {
             Text("Weight controls how likely each behavior is to be chosen. Higher = more frequent. Click the play button to preview a behavior.")
         }
@@ -168,7 +196,7 @@ struct SettingsView: View {
 
     private var scenesSection: some View {
         Section {
-            // Scenes header row with toggle and expand control
+            // Scenes header row with chevron and master toggle
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Button {
@@ -176,25 +204,27 @@ struct SettingsView: View {
                             viewModel.scenesExpanded.toggle()
                         }
                     } label: {
-                        Image(systemName: viewModel.scenesExpanded ? "chevron.down" : "chevron.right")
+                        Image(systemName: "chevron.right")
+                            .rotationEffect(.degrees(viewModel.scenesExpanded ? 90 : 0))
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .frame(width: 16, height: 16)
-                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.borderless)
+                    .buttonStyle(.plain)
 
-                    Toggle(isOn: $viewModel.scenesEnabled) {
-                        Text("Scenes")
-                    }
-                    .onChange(of: viewModel.scenesEnabled) { _ in
-                        viewModel.applySettings()
-                    }
+                    Text("Scenes")
+                        .fontWeight(.medium)
 
                     Spacer()
+
+                    Toggle("", isOn: $viewModel.scenesEnabled)
+                        .labelsHidden()
+                        .onChange(of: viewModel.scenesEnabled) { _ in
+                            viewModel.applySettings()
+                        }
                 }
 
-                if viewModel.scenesEnabled {
+                // Global weight slider (shown when expanded)
+                if viewModel.scenesExpanded {
                     HStack {
                         Text("Weight")
                             .font(.caption)
@@ -218,47 +248,85 @@ struct SettingsView: View {
                 }
             }
 
-            // Expanded scene list
+            // Individual scenes (shown when expanded)
             if viewModel.scenesExpanded {
                 if viewModel.scenes.isEmpty {
                     Text("No saved scenes")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .padding(.leading, 32)
+                        .padding(.leading, 16)
                 } else {
                     ForEach(viewModel.scenes, id: \.id) { scene in
-                        HStack {
-                            Text(scene.name)
-                                .padding(.leading, 32)
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Toggle(isOn: viewModel.sceneEnabledBinding(for: scene.id)) {
+                                    Text(scene.name)
+                                }
+                                .onChange(of: viewModel.enabledScenes) { _ in
+                                    viewModel.applySettings()
+                                }
 
-                            Spacer()
+                                Spacer()
 
-                            // Preview button
-                            Button {
-                                viewModel.previewScene(scene)
-                            } label: {
-                                Image(systemName: "play.fill")
-                                    .font(.caption)
+                                // Edit button
+                                Button {
+                                    viewModel.editScene(scene)
+                                } label: {
+                                    Image(systemName: "pencil.circle")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Edit \(scene.name)")
+
+                                // Preview button
+                                Button {
+                                    viewModel.previewScene(scene)
+                                } label: {
+                                    Image(systemName: "play.fill")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Preview \(scene.name)")
+                                .disabled(!scene.isPlayable)
+
+                                // Delete button
+                                Button {
+                                    viewModel.requestDeleteScene(scene)
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .font(.caption)
+                                }
+                                .buttonStyle(.borderless)
+                                .help("Delete \(scene.name)")
                             }
-                            .buttonStyle(.borderless)
-                            .help("Preview \(scene.name)")
-                            .disabled(!scene.isPlayable)
 
-                            // Delete button
-                            Button {
-                                viewModel.requestDeleteScene(scene)
-                            } label: {
-                                Image(systemName: "trash")
-                                    .font(.caption)
+                            if viewModel.isSceneEnabled(scene.id) {
+                                HStack {
+                                    Text("Weight")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Slider(
+                                        value: viewModel.sceneWeightBinding(for: scene.id),
+                                        in: 0.1...3.0,
+                                        step: 0.1
+                                    ) {
+                                        Text("Weight")
+                                    } onEditingChanged: { _ in
+                                        viewModel.applySettings()
+                                    }
+                                    Text(String(format: "%.1f", viewModel.sceneWeights[scene.id] ?? 1.0))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .monospacedDigit()
+                                        .frame(width: 30)
+                                }
+                                .padding(.leading, 20)
                             }
-                            .buttonStyle(.borderless)
-                            .help("Delete \(scene.name)")
                         }
+                        .padding(.leading, 16)
                     }
                 }
             }
-        } header: {
-            Text("Scenes")
         } footer: {
             Text("Scenes are choreographed multi-creature animations created with the Choreographer.")
         }
@@ -287,12 +355,15 @@ final class SettingsViewModel: ObservableObject {
     @Published var launchAtLogin: Bool
     @Published var enabledCreatureIds: Set<String>
     @Published var behaviorWeights: [String: Double]
+    @Published var behaviorsEnabled: Bool
+    @Published var behaviorsExpanded: Bool = true
 
     // Scene-related state
     @Published var scenesEnabled: Bool
-    @Published var sceneWeights: [String: Double]
-    @Published var globalSceneWeight: Double = 1.0
     @Published var scenesExpanded: Bool = true
+    @Published var sceneWeights: [String: Double]
+    @Published var enabledScenes: Set<String>
+    @Published var globalSceneWeight: Double = 1.0
     @Published var scenes: [PGSceneLocal] = []
     @Published var sceneToDelete: PGSceneLocal?
     @Published var showDeleteConfirmation: Bool = false
@@ -301,6 +372,7 @@ final class SettingsViewModel: ObservableObject {
     private let sceneStorage: PGSceneStorageLocal
     private let onTestBehavior: (Creature?, BehaviorType?) -> Void
     private let onPreviewScene: (PGSceneLocal) -> Void
+    private let onEditScene: (PGSceneLocal) -> Void
     private let onSettingsChanged: (AppSettings) -> Void
 
     init(
@@ -308,6 +380,7 @@ final class SettingsViewModel: ObservableObject {
         sceneStorage: PGSceneStorageLocal,
         onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void,
         onPreviewScene: @escaping (PGSceneLocal) -> Void,
+        onEditScene: @escaping (PGSceneLocal) -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void
     ) {
         let settings = AppSettings.load()
@@ -316,18 +389,21 @@ final class SettingsViewModel: ObservableObject {
         self.launchAtLogin = settings.launchAtLogin
         self.enabledCreatureIds = settings.enabledCreatures
         self.behaviorWeights = settings.behaviorWeights
+        self.behaviorsEnabled = settings.behaviorsEnabled
         self.scenesEnabled = settings.scenesEnabled
         self.sceneWeights = settings.sceneWeights
+        self.enabledScenes = settings.enabledScenes
         self.creatures = creatures
         self.sceneStorage = sceneStorage
         self.onTestBehavior = onTestBehavior
         self.onPreviewScene = onPreviewScene
+        self.onEditScene = onEditScene
         self.onSettingsChanged = onSettingsChanged
 
         // Load scenes from storage
         self.scenes = sceneStorage.loadAll()
 
-        // Compute global scene weight from first scene's weight or default to 1.0
+        // Compute global scene weight from first enabled scene's weight or default to 1.0
         if let firstSceneId = scenes.first?.id,
            let weight = settings.sceneWeights[firstSceneId] {
             self.globalSceneWeight = weight
@@ -384,6 +460,44 @@ final class SettingsViewModel: ObservableObject {
     func isBehaviorEnabled(_ type: BehaviorType) -> Bool {
         let weight = behaviorWeights[type.rawValue] ?? 1.0
         return weight > 0
+    }
+
+    // MARK: - Scene Bindings
+
+    func sceneEnabledBinding(for id: String) -> Binding<Bool> {
+        Binding(
+            get: {
+                // Empty set means all enabled
+                self.enabledScenes.isEmpty || self.enabledScenes.contains(id)
+            },
+            set: { enabled in
+                // If toggling off and set is empty, populate with all except this one
+                if !enabled && self.enabledScenes.isEmpty {
+                    self.enabledScenes = Set(self.scenes.map(\.id))
+                    self.enabledScenes.remove(id)
+                } else if enabled {
+                    self.enabledScenes.insert(id)
+                    // If all are now enabled, clear the set (empty = all)
+                    if self.enabledScenes.count == self.scenes.count {
+                        self.enabledScenes.removeAll()
+                    }
+                } else {
+                    self.enabledScenes.remove(id)
+                }
+            }
+        )
+    }
+
+    func sceneWeightBinding(for id: String) -> Binding<Double> {
+        Binding(
+            get: { self.sceneWeights[id] ?? 1.0 },
+            set: { self.sceneWeights[id] = $0 }
+        )
+    }
+
+    func isSceneEnabled(_ id: String) -> Bool {
+        // Empty set means all enabled
+        enabledScenes.isEmpty || enabledScenes.contains(id)
     }
 
     // MARK: - Display
@@ -446,8 +560,10 @@ final class SettingsViewModel: ObservableObject {
         launchAtLogin = defaults.launchAtLogin
         enabledCreatureIds = defaults.enabledCreatures
         behaviorWeights = defaults.behaviorWeights
+        behaviorsEnabled = defaults.behaviorsEnabled
         scenesEnabled = defaults.scenesEnabled
         sceneWeights = defaults.sceneWeights
+        enabledScenes = defaults.enabledScenes
         globalSceneWeight = 1.0
         applySettings()
     }
@@ -456,6 +572,10 @@ final class SettingsViewModel: ObservableObject {
 
     func previewScene(_ scene: PGSceneLocal) {
         onPreviewScene(scene)
+    }
+
+    func editScene(_ scene: PGSceneLocal) {
+        onEditScene(scene)
     }
 
     func requestDeleteScene(_ scene: PGSceneLocal) {
@@ -491,11 +611,17 @@ final class SettingsViewModel: ObservableObject {
     }
 
     private func buildSettings() -> AppSettings {
-        // Apply global scene weight to all scenes
-        var updatedSceneWeights: [String: Double] = [:]
+        // Calculate effective scene weights: globalSceneWeight * individualSceneWeight
+        // Only include enabled scenes
+        var effectiveSceneWeights: [String: Double] = [:]
         if scenesEnabled {
             for scene in scenes {
-                updatedSceneWeights[scene.id] = globalSceneWeight
+                // Check if this scene is enabled (empty set means all enabled)
+                let isEnabled = enabledScenes.isEmpty || enabledScenes.contains(scene.id)
+                if isEnabled {
+                    let individualWeight = sceneWeights[scene.id] ?? 1.0
+                    effectiveSceneWeights[scene.id] = globalSceneWeight * individualWeight
+                }
             }
         }
 
@@ -505,9 +631,11 @@ final class SettingsViewModel: ObservableObject {
             maxInterval: maxInterval,
             launchAtLogin: launchAtLogin,
             enabledCreatures: enabledCreatureIds,
-            behaviorWeights: behaviorWeights,
-            sceneWeights: updatedSceneWeights,
-            scenesEnabled: scenesEnabled
+            behaviorWeights: behaviorsEnabled ? behaviorWeights : [:],
+            sceneWeights: effectiveSceneWeights,
+            scenesEnabled: scenesEnabled,
+            enabledScenes: enabledScenes,
+            behaviorsEnabled: behaviorsEnabled
         )
     }
 }

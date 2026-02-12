@@ -95,12 +95,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             onPreviewScene: { [weak self] scene in
                 self?.playScene(scene)
             },
+            onEditScene: { [weak self] scene in
+                self?.openChoreographerWithScene(scene)
+            },
             onSettingsChanged: { [weak self] settings in
                 self?.scheduler.updateSettings(settings)
                 // Reload scenes in case they were deleted from settings
                 self?.loadScenes()
             }
         )
+    }
+
+    private func openChoreographerWithScene(_ scene: Scene) {
+        if choreographerController == nil {
+            choreographerController = ChoreographerController(
+                spriteLoader: spriteLoader,
+                sceneStorage: sceneStorage,
+                scenePlayer: scenePlayer,
+                windowTracker: windowTracker,
+                cursorTracker: cursorTracker
+            )
+        }
+        choreographerController?.open(scene: scene)
     }
 
     @objc private func openChoreographer() {

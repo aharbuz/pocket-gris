@@ -26,6 +26,12 @@ public struct Settings: Equatable, Codable, Sendable {
     /// Whether scenes are included in random trigger selection
     public var scenesEnabled: Bool
 
+    /// Enabled scene IDs (empty = all enabled)
+    public var enabledScenes: Set<String>
+
+    /// Whether behaviors are included in random trigger selection
+    public var behaviorsEnabled: Bool
+
     public init(
         enabled: Bool = true,
         minInterval: TimeInterval = 15 * 60,  // 15 minutes
@@ -34,7 +40,9 @@ public struct Settings: Equatable, Codable, Sendable {
         enabledCreatures: Set<String> = [],
         behaviorWeights: [String: Double] = [:],
         sceneWeights: [String: Double] = [:],
-        scenesEnabled: Bool = true
+        scenesEnabled: Bool = true,
+        enabledScenes: Set<String> = [],
+        behaviorsEnabled: Bool = true
     ) {
         self.enabled = enabled
         self.minInterval = minInterval
@@ -44,6 +52,8 @@ public struct Settings: Equatable, Codable, Sendable {
         self.behaviorWeights = behaviorWeights
         self.sceneWeights = sceneWeights
         self.scenesEnabled = scenesEnabled
+        self.enabledScenes = enabledScenes
+        self.behaviorsEnabled = behaviorsEnabled
     }
 
     /// Default settings

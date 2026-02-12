@@ -499,10 +499,22 @@ Restructured Behaviors and Scenes sections with unified toggle/expand pattern:
   - Added `behaviorsEnabled: Bool` to Settings
   - `buildSettings()` respects individual scene weights and enabled states
 
+#### Auto-Collapse Toggle Behavior → 7572e58
+- When master toggle (Behaviors/Scenes) turns OFF: section auto-collapses, remembers previous expanded state
+- When toggle turns ON: restores previous expanded state
+- Content only shows when both expanded AND enabled
+
+#### Settings Spacing Cleanup (UR-013) → 8e0885d
+
+**REQ-029: Fix duplicate slider labels** (Route A)
+- Fixed "Weight Weight" appearing twice on each row
+- Slider labels changed from `Text("Weight"/"Min"/"Max")` to `EmptyView()`
+- Applied to: behavior weights, global scene weight, per-scene weights, appearance timing sliders
+
 ### Current State
 - Build: ✅ Compiles cleanly
 - Tests: ✅ 118 tests passing
-- Features: Full toggle system for behaviors and scenes with independent expand/enable controls
+- Features: Full toggle system with auto-collapse, cleaned up slider labels
 
 ---
 
@@ -524,14 +536,24 @@ Current state:
 - Multi-monitor support, launch at login (SMAppService)
 - Two creatures: "gris" (pixel art, 12 animations) and "pig-gnome" (pixel art, walk + idle)
 
-Recent changes (UR-012):
+Recent changes (UR-012, UR-013):
 - Master toggles with chevrons for Behaviors and Scenes sections
 - Chevron = expand/collapse (UI visibility), Toggle = enable/disable (scheduler)
+- Auto-collapse when toggle OFF, restore expanded state when toggle ON
 - Individual scene toggles + weight sliders
 - Edit button (pencil.circle) opens scene in choreographer
-- Play button swapped before toggle for behaviors
+- Fixed duplicate "Weight Weight" slider labels
 
 To test: swift build && swift test
 To run app: swift run PocketGrisApp
 To open choreographer: Cmd+Shift+C (while app is running)
+
+All planned work is complete. Potential future work:
+- More creatures and sprite art
+- Additional behaviors (dancing, sleeping, window-interacting)
+- Custom creature editor / drag-and-drop sprite import
+- Notification-triggered appearances
+- Proper .app bundle for distribution
+
+Would you like to work on any of these, or do you have something else in mind?
 ```

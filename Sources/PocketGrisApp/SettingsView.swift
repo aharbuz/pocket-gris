@@ -179,9 +179,10 @@ struct SettingsView: View {
                         Image(systemName: viewModel.scenesExpanded ? "chevron.down" : "chevron.right")
                             .font(.caption)
                             .foregroundStyle(.secondary)
-                            .frame(width: 12)
+                            .frame(width: 16, height: 16)
+                            .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.borderless)
 
                     Toggle(isOn: $viewModel.scenesEnabled) {
                         Text("Scenes")
@@ -291,7 +292,7 @@ final class SettingsViewModel: ObservableObject {
     @Published var scenesEnabled: Bool
     @Published var sceneWeights: [String: Double]
     @Published var globalSceneWeight: Double = 1.0
-    @Published var scenesExpanded: Bool = false
+    @Published var scenesExpanded: Bool = true
     @Published var scenes: [PGSceneLocal] = []
     @Published var sceneToDelete: PGSceneLocal?
     @Published var showDeleteConfirmation: Bool = false

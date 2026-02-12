@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let scenePlayer = ScenePlayer()
     private var choreographerController: ChoreographerController?
     private var scenesSubmenu: NSMenu?
+    private var behaviorsSubmenu: NSMenu?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMenuBar()
@@ -47,12 +48,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let menu = NSMenu()
         menu.autoenablesItems = false  // Prevents hover lag from automatic enable/disable checks
 
-        menu.addItem(NSMenuItem(title: "Trigger Now", action: #selector(triggerNow), keyEquivalent: "t"))
-        menu.addItem(NSMenuItem.separator())
-
         let enableItem = NSMenuItem(title: "Enabled", action: #selector(toggleEnabled), keyEquivalent: "e")
         enableItem.state = isEnabled ? .on : .off
         menu.addItem(enableItem)
+
+        menu.addItem(NSMenuItem(title: "Trigger Random", action: #selector(triggerNow), keyEquivalent: "t"))
+        menu.addItem(NSMenuItem.separator())
+
+        // Behaviors submenu
+        let behaviorsItem = NSMenuItem(title: "Behaviors", action: nil, keyEquivalent: "")
+        behaviorsSubmenu = NSMenu()
+        behaviorsItem.submenu = behaviorsSubmenu
+        menu.addItem(behaviorsItem)
+        rebuildBehaviorsSubmenu()
 
         // Scenes submenu
         let scenesItem = NSMenuItem(title: "Scenes", action: nil, keyEquivalent: "")
@@ -72,6 +80,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(quit), keyEquivalent: "q"))
 
         statusItem.menu = menu
+    }
+
+    private func rebuildBehaviorsSubmenu() {
+        guard let submenu = behaviorsSubmenu else { return }
+        submenu.removeAllItems()
+        submenu.autoenablesItems = false
+
+        // List all behaviors except .scene (scenes have their own submenu)
+        for behaviorType in BehaviorType.allCases where behaviorType != .scene {
+            let displayName = behaviorDisplayName(behaviorType)
+            let item = NSMenuItem(title: displayName, action: #selector(previewBehavior(_:)), keyEquivalent: "")
+            item.representedObject = behaviorType
+            submenu.addItem(item)
+        }
+    }
+
+    private func behaviorDisplayName(_ type: BehaviorType) -> String {
+        switch type {
+        case .peek: return "Peek"
+        case .traverse: return "Traverse"
+        case .stationary: return "Stationary"
+        case .climber: return "Climber"
+        case .cursorReactive: return "Follow Cursor"
+        case .scene: return "Scene"
+        }
+    }
+
+    @objc private func previewBehavior(_ sender: NSMenuItem) {
+        guard let behaviorType = sender.representedObject as? BehaviorType else { return }
+
+        // Pick first enabled creature, or fallback to any available creature
+        let settings = Settings.load()
+        let creatures = spriteLoader.allCreatures()
+        let creature: Creature?
+
+        if settings.enabledCreatures.isEmpty {
+            // Empty set means all creatures are enabled, pick the first
+            creature = creatures.first
+        } else {
+            // Pick first enabled creature
+            creature = creatures.first { settings.enabledCreatures.contains($0.id) } ?? creatures.first
+        }
+
+        if let creature = creature {
+            showCreature(creature, behavior: behaviorType)
+        }
     }
 
     private func rebuildScenesSubmenu() {

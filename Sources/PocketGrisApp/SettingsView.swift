@@ -90,49 +90,58 @@ struct SettingsView: View {
     private var behaviorsSection: some View {
         Section {
             ForEach(BehaviorType.allCases, id: \.self) { behaviorType in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Toggle(isOn: viewModel.behaviorEnabledBinding(for: behaviorType)) {
-                            Text(viewModel.behaviorDisplayName(behaviorType))
-                        }
-                        .onChange(of: viewModel.behaviorWeights[behaviorType.rawValue]) { _ in
-                            viewModel.applySettings()
-                        }
-                    }
-
-                    if viewModel.isBehaviorEnabled(behaviorType) {
+                // Skip .scene - scenes are managed separately in the Scenes submenu
+                if behaviorType != .scene {
+                    VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("Weight")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Slider(
-                                value: viewModel.behaviorWeightBinding(for: behaviorType),
-                                in: 0.1...3.0,
-                                step: 0.1
-                            ) {
-                                Text("Weight")
-                            } onEditingChanged: { _ in
+                            Toggle(isOn: viewModel.behaviorEnabledBinding(for: behaviorType)) {
+                                Text(viewModel.behaviorDisplayName(behaviorType))
+                            }
+                            .onChange(of: viewModel.behaviorWeights[behaviorType.rawValue]) { _ in
                                 viewModel.applySettings()
                             }
-                            Text(String(format: "%.1f", viewModel.behaviorWeights[behaviorType.rawValue] ?? 1.0))
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                                .frame(width: 30)
+
+                            Spacer()
+
+                            Button {
+                                viewModel.previewBehavior(behaviorType)
+                            } label: {
+                                Image(systemName: "play.fill")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Preview \(viewModel.behaviorDisplayName(behaviorType))")
                         }
-                        .padding(.leading, 20)
+
+                        if viewModel.isBehaviorEnabled(behaviorType) {
+                            HStack {
+                                Text("Weight")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Slider(
+                                    value: viewModel.behaviorWeightBinding(for: behaviorType),
+                                    in: 0.1...3.0,
+                                    step: 0.1
+                                ) {
+                                    Text("Weight")
+                                } onEditingChanged: { _ in
+                                    viewModel.applySettings()
+                                }
+                                Text(String(format: "%.1f", viewModel.behaviorWeights[behaviorType.rawValue] ?? 1.0))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                                    .frame(width: 30)
+                            }
+                            .padding(.leading, 20)
+                        }
                     }
                 }
             }
-
-            Button("Test Random Behavior") {
-                viewModel.testBehavior()
-            }
-            .padding(.top, 4)
         } header: {
             Text("Behaviors")
         } footer: {
-            Text("Weight controls how likely each behavior is to be chosen. Higher = more frequent.")
+            Text("Weight controls how likely each behavior is to be chosen. Higher = more frequent. Click the play button to preview a behavior.")
         }
     }
 
@@ -266,6 +275,19 @@ final class SettingsViewModel: ObservableObject {
 
     func testBehavior() {
         onTestBehavior(nil, nil)
+    }
+
+    func previewBehavior(_ type: BehaviorType) {
+        // Pick first enabled creature, or fallback to any available creature
+        let creature: Creature?
+        if enabledCreatureIds.isEmpty {
+            // Empty set means all creatures are enabled, pick the first
+            creature = creatures.first
+        } else {
+            // Pick first enabled creature
+            creature = creatures.first { enabledCreatureIds.contains($0.id) } ?? creatures.first
+        }
+        onTestBehavior(creature, type)
     }
 
     func resetToDefaults() {

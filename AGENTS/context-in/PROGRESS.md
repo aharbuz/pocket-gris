@@ -473,10 +473,36 @@ Quit (Cmd+Q)
 - Changed default `scenesExpanded` from false to true (expanded by default)
 - Changed button style from .plain to .borderless
 
+#### Scene & Behavior Toggle System (UR-012) → fe8a608
+
+**REQ-028: Add disable toggles and weights to scenes** (Route B)
+
+Restructured Behaviors and Scenes sections with unified toggle/expand pattern:
+
+- **Master toggles with chevrons**: Both sections now have:
+  - Chevron button for expand/collapse (UI visibility)
+  - Toggle for enable/disable (scheduler behavior)
+  - These are independent: section can be collapsed but still enabled
+
+- **Individual scene controls**:
+  - Enable/disable toggle per scene
+  - Weight slider (0.1-3.0) per scene when enabled
+  - Edit button (pencil.circle) opens scene in choreographer
+  - Preview and delete buttons retained
+
+- **Behavior row refinement**:
+  - Swapped play button to come before toggle
+  - Consistent with scene row pattern
+
+- **Settings persistence**:
+  - Added `enabledScenes: Set<String>` to Settings
+  - Added `behaviorsEnabled: Bool` to Settings
+  - `buildSettings()` respects individual scene weights and enabled states
+
 ### Current State
 - Build: ✅ Compiles cleanly
 - Tests: ✅ 118 tests passing
-- Features: Simplified tray menu, scenes controls in Settings window (expanded by default)
+- Features: Full toggle system for behaviors and scenes with independent expand/enable controls
 
 ---
 
@@ -493,15 +519,17 @@ Current state:
 - Simplified tray menu: Enabled, Trigger Random, Settings, Choreographer, Quit
 - Settings UI now includes:
   - Interval/creature/behavior configuration
-  - Per-behavior preview buttons
-  - Scene section with expandable scene list, per-scene preview/delete
+  - Behaviors section with master toggle + chevron, per-behavior preview/toggle/weight
+  - Scenes section with master toggle + chevron, per-scene toggle/weight/edit/preview/delete
 - Multi-monitor support, launch at login (SMAppService)
 - Two creatures: "gris" (pixel art, 12 animations) and "pig-gnome" (pixel art, walk + idle)
 
-Recent changes (UR-011):
-- Moved behavior/scene preview controls from tray menu to Settings window
-- Scenes section in Settings styled like behaviors with expandable subitems
-- Simplified tray menu (removed Behaviors/Scenes submenus)
+Recent changes (UR-012):
+- Master toggles with chevrons for Behaviors and Scenes sections
+- Chevron = expand/collapse (UI visibility), Toggle = enable/disable (scheduler)
+- Individual scene toggles + weight sliders
+- Edit button (pencil.circle) opens scene in choreographer
+- Play button swapped before toggle for behaviors
 
 To test: swift build && swift test
 To run app: swift run PocketGrisApp

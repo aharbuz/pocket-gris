@@ -1,17 +1,27 @@
 import SwiftUI
 import PocketGrisCore
 
-// Disambiguate from SwiftUI.Settings
+// Disambiguate from SwiftUI.Settings and Scene
 typealias AppSettings = PocketGrisCore.Settings
+typealias PGSceneLocal = PocketGrisCore.Scene
+typealias PGSceneStorageLocal = PocketGrisCore.SceneStorage
 
 /// SwiftUI settings window for configuring Pocket Gris
 struct SettingsView: View {
     @StateObject private var viewModel: SettingsViewModel
 
-    init(creatures: [Creature], onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void, onSettingsChanged: @escaping (AppSettings) -> Void) {
+    init(
+        creatures: [Creature],
+        sceneStorage: PGSceneStorageLocal,
+        onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void,
+        onPreviewScene: @escaping (PGSceneLocal) -> Void,
+        onSettingsChanged: @escaping (AppSettings) -> Void
+    ) {
         _viewModel = StateObject(wrappedValue: SettingsViewModel(
             creatures: creatures,
+            sceneStorage: sceneStorage,
             onTestBehavior: onTestBehavior,
+            onPreviewScene: onPreviewScene,
             onSettingsChanged: onSettingsChanged
         ))
     }
@@ -21,11 +31,22 @@ struct SettingsView: View {
             appearanceSection
             creaturesSection
             behaviorsSection
+            scenesSection
             generalSection
         }
         .formStyle(.grouped)
         .frame(minWidth: 420, idealWidth: 450, minHeight: 500, idealHeight: 600)
         .navigationTitle("Pocket Gris Settings")
+        .alert("Delete Scene", isPresented: $viewModel.showDeleteConfirmation, presenting: viewModel.sceneToDelete) { scene in
+            Button("Delete", role: .destructive) {
+                viewModel.confirmDeleteScene()
+            }
+            Button("Cancel", role: .cancel) {
+                viewModel.cancelDeleteScene()
+            }
+        } message: { scene in
+            Text("Are you sure you want to delete \"\(scene.name)\"? This cannot be undone.")
+        }
     }
 
     // MARK: - Sections
@@ -145,6 +166,103 @@ struct SettingsView: View {
         }
     }
 
+    private var scenesSection: some View {
+        Section {
+            // Scenes header row with toggle and expand control
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            viewModel.scenesExpanded.toggle()
+                        }
+                    } label: {
+                        Image(systemName: viewModel.scenesExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(width: 12)
+                    }
+                    .buttonStyle(.plain)
+
+                    Toggle(isOn: $viewModel.scenesEnabled) {
+                        Text("Scenes")
+                    }
+                    .onChange(of: viewModel.scenesEnabled) { _ in
+                        viewModel.applySettings()
+                    }
+
+                    Spacer()
+                }
+
+                if viewModel.scenesEnabled {
+                    HStack {
+                        Text("Weight")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Slider(
+                            value: $viewModel.globalSceneWeight,
+                            in: 0.1...3.0,
+                            step: 0.1
+                        ) {
+                            Text("Weight")
+                        } onEditingChanged: { _ in
+                            viewModel.applySettings()
+                        }
+                        Text(String(format: "%.1f", viewModel.globalSceneWeight))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                            .frame(width: 30)
+                    }
+                    .padding(.leading, 20)
+                }
+            }
+
+            // Expanded scene list
+            if viewModel.scenesExpanded {
+                if viewModel.scenes.isEmpty {
+                    Text("No saved scenes")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 32)
+                } else {
+                    ForEach(viewModel.scenes, id: \.id) { scene in
+                        HStack {
+                            Text(scene.name)
+                                .padding(.leading, 32)
+
+                            Spacer()
+
+                            // Preview button
+                            Button {
+                                viewModel.previewScene(scene)
+                            } label: {
+                                Image(systemName: "play.fill")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Preview \(scene.name)")
+                            .disabled(!scene.isPlayable)
+
+                            // Delete button
+                            Button {
+                                viewModel.requestDeleteScene(scene)
+                            } label: {
+                                Image(systemName: "trash")
+                                    .font(.caption)
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Delete \(scene.name)")
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text("Scenes")
+        } footer: {
+            Text("Scenes are choreographed multi-creature animations created with the Choreographer.")
+        }
+    }
+
     private var generalSection: some View {
         Section("General") {
             Toggle("Launch at login", isOn: $viewModel.launchAtLogin)
@@ -169,20 +287,50 @@ final class SettingsViewModel: ObservableObject {
     @Published var enabledCreatureIds: Set<String>
     @Published var behaviorWeights: [String: Double]
 
+    // Scene-related state
+    @Published var scenesEnabled: Bool
+    @Published var sceneWeights: [String: Double]
+    @Published var globalSceneWeight: Double = 1.0
+    @Published var scenesExpanded: Bool = false
+    @Published var scenes: [PGSceneLocal] = []
+    @Published var sceneToDelete: PGSceneLocal?
+    @Published var showDeleteConfirmation: Bool = false
+
     let creatures: [Creature]
+    private let sceneStorage: PGSceneStorageLocal
     private let onTestBehavior: (Creature?, BehaviorType?) -> Void
+    private let onPreviewScene: (PGSceneLocal) -> Void
     private let onSettingsChanged: (AppSettings) -> Void
 
-    init(creatures: [Creature], onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void, onSettingsChanged: @escaping (AppSettings) -> Void) {
+    init(
+        creatures: [Creature],
+        sceneStorage: PGSceneStorageLocal,
+        onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void,
+        onPreviewScene: @escaping (PGSceneLocal) -> Void,
+        onSettingsChanged: @escaping (AppSettings) -> Void
+    ) {
         let settings = AppSettings.load()
         self.minInterval = settings.minInterval
         self.maxInterval = settings.maxInterval
         self.launchAtLogin = settings.launchAtLogin
         self.enabledCreatureIds = settings.enabledCreatures
         self.behaviorWeights = settings.behaviorWeights
+        self.scenesEnabled = settings.scenesEnabled
+        self.sceneWeights = settings.sceneWeights
         self.creatures = creatures
+        self.sceneStorage = sceneStorage
         self.onTestBehavior = onTestBehavior
+        self.onPreviewScene = onPreviewScene
         self.onSettingsChanged = onSettingsChanged
+
+        // Load scenes from storage
+        self.scenes = sceneStorage.loadAll()
+
+        // Compute global scene weight from first scene's weight or default to 1.0
+        if let firstSceneId = scenes.first?.id,
+           let weight = settings.sceneWeights[firstSceneId] {
+            self.globalSceneWeight = weight
+        }
     }
 
     // MARK: - Bindings
@@ -297,17 +445,68 @@ final class SettingsViewModel: ObservableObject {
         launchAtLogin = defaults.launchAtLogin
         enabledCreatureIds = defaults.enabledCreatures
         behaviorWeights = defaults.behaviorWeights
+        scenesEnabled = defaults.scenesEnabled
+        sceneWeights = defaults.sceneWeights
+        globalSceneWeight = 1.0
         applySettings()
     }
 
+    // MARK: - Scene Actions
+
+    func previewScene(_ scene: PGSceneLocal) {
+        onPreviewScene(scene)
+    }
+
+    func requestDeleteScene(_ scene: PGSceneLocal) {
+        sceneToDelete = scene
+        showDeleteConfirmation = true
+    }
+
+    func confirmDeleteScene() {
+        guard let scene = sceneToDelete else { return }
+
+        do {
+            try sceneStorage.delete(id: scene.id)
+            // Remove from local list
+            scenes.removeAll { $0.id == scene.id }
+            // Remove from weights
+            sceneWeights.removeValue(forKey: scene.id)
+            applySettings()
+        } catch {
+            print("Failed to delete scene '\(scene.name)': \(error)")
+        }
+
+        sceneToDelete = nil
+        showDeleteConfirmation = false
+    }
+
+    func cancelDeleteScene() {
+        sceneToDelete = nil
+        showDeleteConfirmation = false
+    }
+
+    func reloadScenes() {
+        scenes = sceneStorage.loadAll()
+    }
+
     private func buildSettings() -> AppSettings {
-        AppSettings(
+        // Apply global scene weight to all scenes
+        var updatedSceneWeights: [String: Double] = [:]
+        if scenesEnabled {
+            for scene in scenes {
+                updatedSceneWeights[scene.id] = globalSceneWeight
+            }
+        }
+
+        return AppSettings(
             enabled: true,
             minInterval: minInterval,
             maxInterval: maxInterval,
             launchAtLogin: launchAtLogin,
             enabledCreatures: enabledCreatureIds,
-            behaviorWeights: behaviorWeights
+            behaviorWeights: behaviorWeights,
+            sceneWeights: updatedSceneWeights,
+            scenesEnabled: scenesEnabled
         )
     }
 }

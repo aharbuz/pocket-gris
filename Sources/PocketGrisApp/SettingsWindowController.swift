@@ -8,7 +8,9 @@ final class SettingsWindowController {
 
     func show(
         creatures: [Creature],
+        sceneStorage: PocketGrisCore.SceneStorage,
         onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void,
+        onPreviewScene: @escaping (PocketGrisCore.Scene) -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void
     ) {
         // If window already exists, just bring it to front
@@ -20,7 +22,9 @@ final class SettingsWindowController {
 
         let settingsView = SettingsView(
             creatures: creatures,
+            sceneStorage: sceneStorage,
             onTestBehavior: onTestBehavior,
+            onPreviewScene: onPreviewScene,
             onSettingsChanged: onSettingsChanged
         )
 

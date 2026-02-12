@@ -224,6 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let creatures = spriteLoader.allCreatures()
         settingsWindowController.show(
             creatures: creatures,
+            sceneStorage: sceneStorage,
             onTestBehavior: { [weak self] creature, behavior in
                 if let creature = creature {
                     let behaviorType = behavior ?? .peek
@@ -232,8 +233,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self?.scheduler.triggerNow()
                 }
             },
+            onPreviewScene: { [weak self] scene in
+                self?.playScene(scene)
+            },
             onSettingsChanged: { [weak self] settings in
                 self?.scheduler.updateSettings(settings)
+                // Reload scenes menu in case scenes were deleted
+                self?.loadScenes()
             }
         )
     }

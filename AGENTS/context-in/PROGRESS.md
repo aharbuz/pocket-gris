@@ -468,10 +468,15 @@ Choreographer... (Cmd+Shift+C)
 Quit (Cmd+Q)
 ```
 
+#### Bug Fix: Scenes Section Chevron → 6bf15d0
+- Fixed chevron button not responding to clicks (enlarged frame 12→16px, added contentShape)
+- Changed default `scenesExpanded` from false to true (expanded by default)
+- Changed button style from .plain to .borderless
+
 ### Current State
 - Build: ✅ Compiles cleanly
 - Tests: ✅ 118 tests passing
-- Features: Simplified tray menu, scenes controls in Settings window
+- Features: Simplified tray menu, scenes controls in Settings window (expanded by default)
 
 ---
 

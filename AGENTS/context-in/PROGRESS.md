@@ -351,6 +351,19 @@ Follow-on polish based on user feedback:
 - Scans existing scenes in storage to find next available number
 - Preserves existing scene's name when calling New Scene (only affects newly created scene)
 
+#### Choreographer Polish (UR-009)
+- **REQ-018**: Smoother mouse preview cursor following
+  - Increased `cursorSmoothingSpeed` from 15.0 to 30.0 (~50% catch-up per frame vs ~25%)
+  - Preview now stays much closer to cursor while remaining smooth
+- **REQ-019**: Fix menu bar hover events not firing
+  - Added `menu.autoenablesItems = false` to prevent hover lag from automatic enable checks
+- **REQ-020**: New Scene creates default track like initial open
+  - `newScene()` now mirrors `init()` logic: creates default track with gris creature
+  - Resets pending segment state, sets `isPlacing = true`
+- **REQ-021**: Open last scene when reopening choreographer
+  - Persists last scene ID to UserDefaults on save/load/edit
+  - Choreographer opens to last worked-on scene instead of blank
+
 ### All Phases Complete (0-8 + Choreographer + UI Polish)
 
 The core feature set, choreographer, and UI polish are complete. Potential future work:

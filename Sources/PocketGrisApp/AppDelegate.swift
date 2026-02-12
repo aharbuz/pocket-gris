@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
+        menu.autoenablesItems = false  // Prevents hover lag from automatic enable/disable checks
 
         menu.addItem(NSMenuItem(title: "Trigger Now", action: #selector(triggerNow), keyEquivalent: "t"))
         menu.addItem(NSMenuItem.separator())

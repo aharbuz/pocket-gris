@@ -54,7 +54,7 @@ final class ChoreographerViewModel: ObservableObject {
     // Smooth cursor tracking
     private var targetCursorPosition: CGPoint = .zero
     private var displayLink: CVDisplayLink?
-    private let cursorSmoothingSpeed: CGFloat = 15.0  // Higher = faster catch-up
+    private let cursorSmoothingSpeed: CGFloat = 30.0  // Higher = faster catch-up (30 gives ~50% per frame)
     private var undoStack: [PGScene] = []
     private let maxUndoLevels = 20
     var onSave: ((PGScene) -> Void)?
@@ -495,7 +495,28 @@ final class ChoreographerViewModel: ObservableObject {
         currentScene = PGScene(name: name)
         selectedTrackIndex = nil
         selectedSegmentIndex = nil
-        isPlacing = false
+        expandedSegmentIndices.removeAll()
+        pendingAnimation = ""
+        pendingSnapMode = .none
+        pendingDuration = 2.0
+
+        // Create default track like init() does
+        let allCreatures = spriteLoader.allCreatures()
+        let defaultCreature = allCreatures.first(where: { $0.id == "gris" }) ?? allCreatures.first
+
+        if let creature = defaultCreature {
+            let track = SceneTrack(
+                creatureId: creature.id,
+                waypoints: [],
+                segments: [],
+                startDelay: 0
+            )
+            currentScene.tracks.append(track)
+            selectedTrackIndex = 0
+            isPlacing = true
+        } else {
+            isPlacing = false
+        }
     }
 
     // MARK: - Scene Name Generation

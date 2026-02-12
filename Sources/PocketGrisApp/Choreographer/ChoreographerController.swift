@@ -5,10 +5,13 @@ import PocketGrisCore
 /// Orchestrates the choreographer overlay and panel windows
 final class ChoreographerController {
 
+    private static let lastSceneIdKey = "choreographer.lastSceneId"
+
     private var overlayWindow: ChoreographerOverlayWindow?
     private var panelController: ChoreographerPanelController?
     private var viewModel: ChoreographerViewModel?
     private var placingCancellable: AnyCancellable?
+    private var sceneCancellable: AnyCancellable?
     private let spriteLoader: SpriteLoader
     private let sceneStorage: SceneStorage
     private let scenePlayer: ScenePlayer
@@ -36,7 +39,16 @@ final class ChoreographerController {
             close()
         }
 
-        let vm = ChoreographerViewModel(scene: scene, spriteLoader: spriteLoader, sceneStorage: sceneStorage)
+        // Try to load last opened scene if none provided
+        var sceneToLoad = scene
+        if sceneToLoad == nil, let lastId = UserDefaults.standard.string(forKey: Self.lastSceneIdKey) {
+            let allScenes = sceneStorage.loadAll()
+            if let lastScene = allScenes.first(where: { $0.id == lastId }) {
+                sceneToLoad = lastScene
+            }
+        }
+
+        let vm = ChoreographerViewModel(scene: sceneToLoad, spriteLoader: spriteLoader, sceneStorage: sceneStorage)
         vm.onSave = { [weak self] scene in
             self?.saveScene(scene)
         }
@@ -44,6 +56,11 @@ final class ChoreographerController {
             self?.close()
         }
         self.viewModel = vm
+
+        // Track scene changes to persist last opened scene
+        sceneCancellable = vm.$currentScene.sink { [weak self] scene in
+            self?.persistLastSceneId(scene.id)
+        }
 
         // Create overlay window
         let overlay = ChoreographerOverlayWindow()
@@ -75,6 +92,8 @@ final class ChoreographerController {
     func close() {
         placingCancellable?.cancel()
         placingCancellable = nil
+        sceneCancellable?.cancel()
+        sceneCancellable = nil
         viewModel?.isPlacing = false
         overlayWindow?.teardown()
         overlayWindow = nil
@@ -88,6 +107,7 @@ final class ChoreographerController {
     private func saveScene(_ scene: Scene) {
         do {
             try sceneStorage.save(scene: scene)
+            persistLastSceneId(scene.id)
             print("Scene saved: \(scene.name)")
             // Notify app to reload scenes into scheduler
             if let appDelegate = NSApp.delegate as? AppDelegate {
@@ -96,5 +116,9 @@ final class ChoreographerController {
         } catch {
             print("Failed to save scene: \(error)")
         }
+    }
+
+    private func persistLastSceneId(_ id: String) {
+        UserDefaults.standard.set(id, forKey: Self.lastSceneIdKey)
     }
 }

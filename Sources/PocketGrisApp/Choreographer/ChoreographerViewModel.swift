@@ -593,11 +593,18 @@ final class ChoreographerViewModel: ObservableObject {
     }
 
     func startPreview() {
-        stopPreview()
+        // Stop existing timer/display link first (but don't clear previewFramePath yet)
+        previewTimer?.invalidate()
+        previewTimer = nil
+        stopDisplayLink()
+
         guard let creatureId = activeCreatureId,
               let animName = activeAnimation,
               let creature = spriteLoader.creature(id: creatureId),
               let animation = creature.animation(named: animName) else {
+            // Only clear preview state if we can't set up a new preview
+            previewAnimationState = nil
+            previewFramePath = nil
             return
         }
 
@@ -609,7 +616,8 @@ final class ChoreographerViewModel: ObservableObject {
         let animState = PocketGrisCore.AnimationState(animation: animation)
         previewAnimationState = animState
 
-        // Set initial frame
+        // Set initial frame immediately (without going through nil first)
+        // This ensures the preview updates instantly when switching creatures
         previewFramePath = spriteLoader.framePath(
             creature: creatureId, animation: animName, frame: animState.currentFrame
         )

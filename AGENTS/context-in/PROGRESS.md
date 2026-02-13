@@ -556,6 +556,7 @@ Restructured Behaviors and Scenes sections with unified toggle/expand pattern:
 - SwiftUI `.alert()` with Save/Discard/Cancel buttons in ChoreographerPanelView
 - Red window close button intercepted via `windowShouldClose(_:)` delegate in ChoreographerPanelController
 - Save: saves then closes. Discard: closes without saving. Cancel: dismisses alert.
+- Manually tested and confirmed working
 
 ### Current State
 - Build: ✅ Compiles cleanly

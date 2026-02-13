@@ -518,6 +518,31 @@ Restructured Behaviors and Scenes sections with unified toggle/expand pattern:
 
 ---
 
+## Session: 2026-02-13
+
+#### Scene Cleanup on System Events (UR-014)
+
+**REQ-030: Settings menu visual polish** - REVERTED
+- Attempted to unify behavior/scene item appearance with inline weight sliders
+- Changes made: heading colors changed to quaternary, unified layouts, removed global scene weight
+- Reverted after user feedback - layout looked cramped/strange
+- Commits: 8ca65e3 (implemented) → 4ed803f (reverted)
+
+**REQ-031: Scene cleanup on sleep/login** (Route B) → 22d74b0
+- Added NSWorkspace notification observers in AppDelegate:
+  - `screensDidSleepNotification` - triggered on laptop lid close, display sleep
+  - `sessionDidResignActiveNotification` - triggered on screen lock
+- Handler calls `scenePlayer.cancel()` and closes any active `creatureWindow`
+- Proper observer cleanup in `applicationWillTerminate()`
+- Prevents creature windows from getting stuck on screen after sleep/lock events
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 118 tests passing
+- Features: Scene cleanup on sleep/login events
+
+---
+
 ## Continuation Prompt
 
 ```
@@ -529,26 +554,24 @@ Current state:
 - 6 behavior types: peek, traverse, stationary, climber, cursorReactive (follow), scene
 - Animation Choreographer with visual waypoint editor, multi-track playback, scene deletion
 - Simplified tray menu: Enabled, Trigger Random, Settings, Choreographer, Quit
-- Settings UI now includes:
+- Settings UI with:
   - Interval/creature/behavior configuration
   - Behaviors section with master toggle + chevron, per-behavior preview/toggle/weight
   - Scenes section with master toggle + chevron, per-scene toggle/weight/edit/preview/delete
 - Multi-monitor support, launch at login (SMAppService)
+- Scene cleanup on sleep/login events (NSWorkspace notifications)
 - Two creatures: "gris" (pixel art, 12 animations) and "pig-gnome" (pixel art, walk + idle)
 
-Recent changes (UR-012, UR-013):
-- Master toggles with chevrons for Behaviors and Scenes sections
-- Chevron = expand/collapse (UI visibility), Toggle = enable/disable (scheduler)
-- Auto-collapse when toggle OFF, restore expanded state when toggle ON
-- Individual scene toggles + weight sliders
-- Edit button (pencil.circle) opens scene in choreographer
-- Fixed duplicate "Weight Weight" slider labels
+Recent changes (UR-014):
+- REQ-030 (settings visual polish) was attempted but reverted - inline sliders looked cramped
+- REQ-031: Added system event observers for sleep/lock to clean up active scenes
 
 To test: swift build && swift test
 To run app: swift run PocketGrisApp
 To open choreographer: Cmd+Shift+C (while app is running)
 
 All planned work is complete. Potential future work:
+- Settings menu visual polish (needs different approach than inline sliders)
 - More creatures and sprite art
 - Additional behaviors (dancing, sleeping, window-interacting)
 - Custom creature editor / drag-and-drop sprite import

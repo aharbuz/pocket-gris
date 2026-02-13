@@ -40,13 +40,13 @@ public struct FollowBehavior: Behavior {
             duration: duration
         )
 
-        // Store initial cursor position and behavior parameters
-        state.metadata["followDuration"] = String(duration)
-        state.metadata["lastCursorX"] = String(cursorPos.x)
-        state.metadata["lastCursorY"] = String(cursorPos.y)
-        state.metadata["followDistance"] = String(followDistance)
-        state.metadata["fleeDistance"] = String(context.creature.personality.followFleeDistance)
-        state.metadata["moveSpeed"] = String(context.creature.personality.followSpeed)
+        // Store behavior parameters in typed metadata
+        state.metadata = .follow(FollowMetadata(
+            followDuration: duration,
+            followDistance: followDistance,
+            fleeDistance: context.creature.personality.followFleeDistance,
+            moveSpeed: context.creature.personality.followSpeed
+        ))
 
         return state
     }
@@ -79,14 +79,15 @@ public struct FollowBehavior: Behavior {
 
         case .perform:
             // Get behavior parameters
-            guard let followDuration = Double(state.metadata["followDuration"] ?? ""),
-                  let followDistance = Double(state.metadata["followDistance"] ?? ""),
-                  let fleeDistance = Double(state.metadata["fleeDistance"] ?? ""),
-                  let moveSpeed = Double(state.metadata["moveSpeed"] ?? "") else {
+            guard case .follow(let meta) = state.metadata else {
                 state.phase = .complete
                 events.append(.completed)
                 return events
             }
+            let followDuration = meta.followDuration
+            let followDistance = meta.followDistance
+            let fleeDistance = meta.fleeDistance
+            let moveSpeed = meta.moveSpeed
 
             // Check duration
             if elapsed >= followDuration {
@@ -151,10 +152,6 @@ public struct FollowBehavior: Behavior {
                 state.position = newPosition
                 events.append(.positionChanged(newPosition))
             }
-
-            // Update stored cursor position
-            state.metadata["lastCursorX"] = String(cursorPos.x)
-            state.metadata["lastCursorY"] = String(cursorPos.y)
 
         case .exit:
             // Brief exit phase

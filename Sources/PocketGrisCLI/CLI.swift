@@ -399,7 +399,7 @@ struct TestBehavior: ParsableCommand {
                     complete: $0.isComplete
                 )},
                 events: events.map { eventDescription($0) },
-                metadata: state.metadata.isEmpty ? nil : state.metadata
+                metadata: state.metadata.dictionaryRepresentation
             )
 
             output.frames.append(frameOutput)

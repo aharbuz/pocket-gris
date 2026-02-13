@@ -31,7 +31,7 @@ public struct PeekBehavior: Behavior {
             startTime: context.currentTime,
             duration: duration
         )
-        state.metadata["peekDuration"] = String(duration)
+        state.metadata = .peek(PeekMetadata(peekDuration: duration))
 
         return state
     }
@@ -76,7 +76,12 @@ public struct PeekBehavior: Behavior {
 
         case .perform:
             // Wait for peek duration
-            let peekDuration = Double(state.metadata["peekDuration"] ?? "3") ?? 3.0
+            let peekDuration: Double
+            if case .peek(let meta) = state.metadata {
+                peekDuration = meta.peekDuration
+            } else {
+                peekDuration = 3.0
+            }
             if elapsed >= peekDuration {
                 state.phase = .exit
                 events.append(.phaseChanged(.exit))

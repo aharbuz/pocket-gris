@@ -56,23 +56,19 @@ public struct ClimberBehavior: Behavior {
             duration: duration
         )
 
-        // Store metadata - track window by ID for stable identity across frame changes
-        if let windowID = window.windowID {
-            state.metadata["windowID"] = String(windowID)
-        }
-        state.metadata["windowEdge"] = String(describing: startEdge)
-        state.metadata["climbDirection"] = climbDirection ? "positive" : "negative"
-        state.metadata["startX"] = String(startPosition.x)
-        state.metadata["startY"] = String(startPosition.y)
-        state.metadata["endX"] = String(endPosition.x)
-        state.metadata["endY"] = String(endPosition.y)
-        state.metadata["speed"] = String(speed)
-
-        // Store original window frame for tracking movement
-        state.metadata["windowX"] = String(window.x)
-        state.metadata["windowY"] = String(window.y)
-        state.metadata["windowWidth"] = String(window.width)
-        state.metadata["windowHeight"] = String(window.height)
+        // Store typed metadata
+        state.metadata = .climber(ClimberMetadata(
+            windowID: window.windowID,
+            startX: startPosition.x,
+            startY: startPosition.y,
+            endX: endPosition.x,
+            endY: endPosition.y,
+            speed: speed,
+            windowX: window.x,
+            windowY: window.y,
+            windowWidth: window.width,
+            windowHeight: window.height
+        ))
 
         return state
     }
@@ -105,66 +101,54 @@ public struct ClimberBehavior: Behavior {
 
         case .perform:
             // Climb along the edge
-            guard var startX = Double(state.metadata["startX"] ?? ""),
-                  var startY = Double(state.metadata["startY"] ?? ""),
-                  var endX = Double(state.metadata["endX"] ?? ""),
-                  var endY = Double(state.metadata["endY"] ?? ""),
-                  let speed = Double(state.metadata["speed"] ?? "") else {
+            guard case .climber(var meta) = state.metadata else {
                 state.phase = .complete
                 events.append(.completed)
                 return events
             }
 
             // Track window movement by identity (windowID)
-            if let origWindowX = Double(state.metadata["windowX"] ?? ""),
-               let origWindowY = Double(state.metadata["windowY"] ?? "") {
-                let currentWindow: ScreenRect? = findTrackedWindow(
-                    in: context.windowFrames,
-                    metadata: state.metadata
-                )
+            let currentWindow: ScreenRect? = findTrackedWindow(
+                in: context.windowFrames,
+                metadata: meta
+            )
 
-                guard let currentWindow = currentWindow else {
-                    // Tracked window has disappeared - gracefully exit
-                    state.phase = .exit
-                    events.append(.phaseChanged(.exit))
-                    state.startTime = context.currentTime
-                    return events
-                }
+            guard let currentWindow = currentWindow else {
+                // Tracked window has disappeared - gracefully exit
+                state.phase = .exit
+                events.append(.phaseChanged(.exit))
+                state.startTime = context.currentTime
+                return events
+            }
 
-                let deltaX = currentWindow.x - origWindowX
-                let deltaY = currentWindow.y - origWindowY
+            let deltaX = currentWindow.x - meta.windowX
+            let deltaY = currentWindow.y - meta.windowY
 
-                // If window moved, adjust our coordinates
-                if abs(deltaX) > 0.5 || abs(deltaY) > 0.5 {
-                    startX += deltaX
-                    startY += deltaY
-                    endX += deltaX
-                    endY += deltaY
-
-                    // Update stored metadata with new positions
-                    state.metadata["startX"] = String(startX)
-                    state.metadata["startY"] = String(startY)
-                    state.metadata["endX"] = String(endX)
-                    state.metadata["endY"] = String(endY)
-                    state.metadata["windowX"] = String(currentWindow.x)
-                    state.metadata["windowY"] = String(currentWindow.y)
-                }
+            // If window moved, adjust our coordinates
+            if abs(deltaX) > 0.5 || abs(deltaY) > 0.5 {
+                meta.startX += deltaX
+                meta.startY += deltaY
+                meta.endX += deltaX
+                meta.endY += deltaY
+                meta.windowX = currentWindow.x
+                meta.windowY = currentWindow.y
+                state.metadata = .climber(meta)
             }
 
             // Calculate progress based on time and speed
-            let totalDistance = Position(x: startX, y: startY).distance(to: Position(x: endX, y: endY))
+            let totalDistance = Position(x: meta.startX, y: meta.startY).distance(to: Position(x: meta.endX, y: meta.endY))
             guard totalDistance > 0 else {
                 state.phase = .exit
                 events.append(.phaseChanged(.exit))
                 state.startTime = context.currentTime
                 return events
             }
-            let distanceTraveled = speed * elapsed
+            let distanceTraveled = meta.speed * elapsed
             let progress = min(distanceTraveled / totalDistance, 1.0)
 
             // Interpolate position
-            let currentX = startX + (endX - startX) * progress
-            let currentY = startY + (endY - startY) * progress
+            let currentX = meta.startX + (meta.endX - meta.startX) * progress
+            let currentY = meta.startY + (meta.endY - meta.startY) * progress
             let newPosition = Position(x: currentX, y: currentY)
 
             if newPosition != state.position {
@@ -188,7 +172,7 @@ public struct ClimberBehavior: Behavior {
 
             // Check if completed climb
             if progress >= 1.0 {
-                state.position = Position(x: endX, y: endY)
+                state.position = Position(x: meta.endX, y: meta.endY)
                 events.append(.positionChanged(state.position))
                 state.phase = .exit
                 events.append(.phaseChanged(.exit))
@@ -224,26 +208,18 @@ public struct ClimberBehavior: Behavior {
     /// Returns nil if the tracked window has disappeared.
     private func findTrackedWindow(
         in windowFrames: [ScreenRect],
-        metadata: [String: String]
+        metadata: ClimberMetadata
     ) -> ScreenRect? {
         // Primary: look up by windowID (stable across list reordering)
-        if let windowIDStr = metadata["windowID"],
-           let windowID = Int(windowIDStr) {
+        if let windowID = metadata.windowID {
             return windowFrames.first { $0.windowID == windowID }
         }
 
         // Fallback for windows without IDs (e.g., tests with plain ScreenRects):
-        // Match by last-known frame position and size
-        if let origW = Double(metadata["windowWidth"] ?? ""),
-           let origH = Double(metadata["windowHeight"] ?? "") {
-            // Find a window that matches the stored dimensions (size must match,
-            // position may have changed due to window movement)
-            return windowFrames.first { window in
-                abs(window.width - origW) < 1.0 && abs(window.height - origH) < 1.0
-            }
+        // Match by last-known frame size
+        return windowFrames.first { window in
+            abs(window.width - metadata.windowWidth) < 1.0 && abs(window.height - metadata.windowHeight) < 1.0
         }
-
-        return nil
     }
 
     private func createFallbackState(context: BehaviorContext, random: RandomSource) -> BehaviorState {

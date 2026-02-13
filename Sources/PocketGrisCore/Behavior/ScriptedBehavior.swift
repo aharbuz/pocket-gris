@@ -19,16 +19,14 @@ public struct ScriptedBehavior: Behavior {
 
         let firstAnim = context.creature.animation(named: track.segments[0].animationName)
 
-        var state = BehaviorState(
+        let state = BehaviorState(
             phase: .enter,
             position: track.waypoints[0],
             animation: firstAnim.map { AnimationState(animation: $0) },
             startTime: context.currentTime,
-            duration: totalDuration()
+            duration: totalDuration(),
+            metadata: .scripted(ScriptedMetadata())
         )
-        state.metadata["segmentIndex"] = "0"
-        state.metadata["segmentElapsed"] = "0"
-        state.metadata["enterElapsed"] = "0"
 
         return state
     }
@@ -45,29 +43,38 @@ public struct ScriptedBehavior: Behavior {
             events.append(.animationFrameChanged(state.animation!.currentFrame))
         }
 
+        // Extract mutable metadata
+        guard case .scripted(var meta) = state.metadata else {
+            state.phase = .complete
+            events.append(.completed)
+            return events
+        }
+
         switch state.phase {
         case .idle:
             break
 
         case .enter:
-            let enterElapsed = (Double(state.metadata["enterElapsed"] ?? "0") ?? 0) + deltaTime
-            state.metadata["enterElapsed"] = String(enterElapsed)
+            meta.enterElapsed += deltaTime
+            state.metadata = .scripted(meta)
 
-            if enterElapsed >= 0.2 {
+            if meta.enterElapsed >= 0.2 {
+                meta.segmentIndex = 0
+                meta.segmentElapsed = 0
+                state.metadata = .scripted(meta)
                 state.phase = .perform
-                state.metadata["segmentIndex"] = "0"
-                state.metadata["segmentElapsed"] = "0"
                 events.append(.phaseChanged(.perform))
             }
 
         case .perform:
-            let segmentIndex = Int(state.metadata["segmentIndex"] ?? "0") ?? 0
-            var segmentElapsed = (Double(state.metadata["segmentElapsed"] ?? "0") ?? 0) + deltaTime
+            let segmentIndex = meta.segmentIndex
+            meta.segmentElapsed += deltaTime
 
             guard segmentIndex < track.segments.count else {
                 // All segments done
+                meta.exitElapsed = 0
+                state.metadata = .scripted(meta)
                 state.phase = .exit
-                state.metadata["exitElapsed"] = "0"
                 events.append(.phaseChanged(.exit))
                 return events
             }
@@ -75,13 +82,13 @@ public struct ScriptedBehavior: Behavior {
             let segment = track.segments[segmentIndex]
 
             // Check if current segment is done
-            if segmentElapsed >= segment.duration {
+            if meta.segmentElapsed >= segment.duration {
                 let nextIndex = segmentIndex + 1
                 if nextIndex < track.segments.count {
                     // Move to next segment
-                    segmentElapsed = segmentElapsed - segment.duration
-                    state.metadata["segmentIndex"] = String(nextIndex)
-                    state.metadata["segmentElapsed"] = String(segmentElapsed)
+                    meta.segmentElapsed -= segment.duration
+                    meta.segmentIndex = nextIndex
+                    state.metadata = .scripted(meta)
 
                     // Switch animation if different
                     let nextSegment = track.segments[nextIndex]
@@ -95,7 +102,7 @@ public struct ScriptedBehavior: Behavior {
                     // Interpolate position in the new segment
                     let pos = interpolatePosition(
                         segmentIndex: nextIndex,
-                        progress: min(segmentElapsed / nextSegment.duration, 1.0),
+                        progress: min(meta.segmentElapsed / nextSegment.duration, 1.0),
                         context: context
                     )
                     state.position = pos
@@ -104,15 +111,16 @@ public struct ScriptedBehavior: Behavior {
                     // Final waypoint reached
                     state.position = track.waypoints[track.waypoints.count - 1]
                     events.append(.positionChanged(state.position))
+                    meta.exitElapsed = 0
+                    state.metadata = .scripted(meta)
                     state.phase = .exit
-                    state.metadata["exitElapsed"] = "0"
                     events.append(.phaseChanged(.exit))
                 }
             } else {
-                state.metadata["segmentElapsed"] = String(segmentElapsed)
+                state.metadata = .scripted(meta)
 
                 // Interpolate position along current segment
-                let progress = segmentElapsed / segment.duration
+                let progress = meta.segmentElapsed / segment.duration
                 let pos = interpolatePosition(
                     segmentIndex: segmentIndex,
                     progress: min(progress, 1.0),
@@ -123,10 +131,10 @@ public struct ScriptedBehavior: Behavior {
             }
 
         case .exit:
-            let exitElapsed = (Double(state.metadata["exitElapsed"] ?? "0") ?? 0) + deltaTime
-            state.metadata["exitElapsed"] = String(exitElapsed)
+            meta.exitElapsed += deltaTime
+            state.metadata = .scripted(meta)
 
-            if exitElapsed >= 0.2 {
+            if meta.exitElapsed >= 0.2 {
                 state.phase = .complete
                 events.append(.phaseChanged(.complete))
                 events.append(.completed)

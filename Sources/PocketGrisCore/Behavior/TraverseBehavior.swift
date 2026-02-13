@@ -40,13 +40,13 @@ public struct TraverseBehavior: Behavior {
             duration: duration
         )
 
-        // Store path info in metadata
-        state.metadata["startX"] = String(startX)
-        state.metadata["endX"] = String(endX)
-        state.metadata["y"] = String(y)
-        state.metadata["startEdge"] = startEdge.rawValue
-        state.metadata["endEdge"] = endEdge.rawValue
-        state.metadata["speed"] = String(speed)
+        // Store path info in typed metadata
+        state.metadata = .traverse(TraverseMetadata(
+            startX: startX,
+            endX: endX,
+            y: y,
+            speed: speed
+        ))
 
         return state
     }
@@ -79,14 +79,15 @@ public struct TraverseBehavior: Behavior {
 
         case .perform:
             // Move across screen
-            guard let startX = Double(state.metadata["startX"] ?? ""),
-                  let endX = Double(state.metadata["endX"] ?? ""),
-                  let y = Double(state.metadata["y"] ?? ""),
-                  let speed = Double(state.metadata["speed"] ?? "") else {
+            guard case .traverse(let meta) = state.metadata else {
                 state.phase = .complete
                 events.append(.completed)
                 return events
             }
+            let startX = meta.startX
+            let endX = meta.endX
+            let y = meta.y
+            let speed = meta.speed
 
             // Calculate current position based on elapsed time and speed
             let distance = speed * elapsed

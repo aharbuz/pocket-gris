@@ -31,8 +31,7 @@ public struct StationaryBehavior: Behavior {
             duration: duration
         )
 
-        state.metadata["stationaryDuration"] = String(duration)
-        state.metadata["hiddenOffset"] = "60"  // How far offscreen when hidden
+        state.metadata = .stationary(StationaryMetadata(stationaryDuration: duration))
 
         return state
     }
@@ -76,7 +75,12 @@ public struct StationaryBehavior: Behavior {
 
         case .perform:
             // Wait for duration while playing idle animation
-            let stationaryDuration = Double(state.metadata["stationaryDuration"] ?? "5") ?? 5.0
+            let stationaryDuration: Double
+            if case .stationary(let meta) = state.metadata {
+                stationaryDuration = meta.stationaryDuration
+            } else {
+                stationaryDuration = 5.0
+            }
 
             if elapsed >= stationaryDuration {
                 state.phase = .exit

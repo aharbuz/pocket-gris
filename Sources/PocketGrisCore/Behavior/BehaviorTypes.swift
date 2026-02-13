@@ -27,7 +27,7 @@ public struct BehaviorState: Equatable, Sendable {
     public var edge: ScreenEdge?
     public var startTime: TimeInterval
     public var duration: TimeInterval
-    public var metadata: [String: String]
+    public var metadata: BehaviorMetadata
 
     public init(
         phase: BehaviorPhase = .idle,
@@ -36,7 +36,7 @@ public struct BehaviorState: Equatable, Sendable {
         edge: ScreenEdge? = nil,
         startTime: TimeInterval = 0,
         duration: TimeInterval = 0,
-        metadata: [String: String] = [:]
+        metadata: BehaviorMetadata = .none
     ) {
         self.phase = phase
         self.position = position

@@ -167,7 +167,11 @@ final class ScriptedBehaviorTests: XCTestCase {
 
         // Should now be in second segment
         XCTAssertEqual(state.phase, .perform)
-        XCTAssertEqual(state.metadata["segmentIndex"], "1")
+        if case .scripted(let meta) = state.metadata {
+            XCTAssertEqual(meta.segmentIndex, 1)
+        } else {
+            XCTFail("Expected .scripted metadata")
+        }
     }
 
     func testMultiSegmentAnimationSwitching() {
@@ -223,7 +227,11 @@ final class ScriptedBehaviorTests: XCTestCase {
         // Complete first segment (transitions to second)
         _ = behavior.update(state: &state, context: makeContext(currentTime: 1.4), deltaTime: 1.1)
         XCTAssertEqual(state.phase, .perform)
-        XCTAssertEqual(state.metadata["segmentIndex"], "1")
+        if case .scripted(let meta) = state.metadata {
+            XCTAssertEqual(meta.segmentIndex, 1)
+        } else {
+            XCTFail("Expected .scripted metadata")
+        }
 
         // Complete second segment → exit
         _ = behavior.update(state: &state, context: makeContext(currentTime: 2.5), deltaTime: 1.1)

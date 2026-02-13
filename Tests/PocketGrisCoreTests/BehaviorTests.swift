@@ -222,8 +222,11 @@ final class BehaviorTests: XCTestCase {
         XCTAssertEqual(state.phase, .enter)
         XCTAssertNotNil(state.edge)
         XCTAssertNotNil(state.animation)
-        XCTAssertNotNil(state.metadata["startX"])
-        XCTAssertNotNil(state.metadata["endX"])
+        if case .traverse(let meta) = state.metadata {
+            XCTAssertNotEqual(meta.startX, meta.endX)
+        } else {
+            XCTFail("Expected .traverse metadata")
+        }
     }
 
     func testTraverseBehaviorPhaseTransitions() {
@@ -469,8 +472,11 @@ final class BehaviorTests: XCTestCase {
 
         XCTAssertEqual(state.phase, .enter)
         XCTAssertNotNil(state.animation)
-        XCTAssertEqual(state.metadata["windowID"], "42")
-        XCTAssertNotNil(state.metadata["windowEdge"])
+        if case .climber(let meta) = state.metadata {
+            XCTAssertEqual(meta.windowID, 42)
+        } else {
+            XCTFail("Expected .climber metadata")
+        }
     }
 
     func testClimberBehaviorFallbackWithNoWindows() {
@@ -691,7 +697,11 @@ final class BehaviorTests: XCTestCase {
         let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
 
         var state = behavior.start(context: context, random: random)
-        XCTAssertEqual(state.metadata["windowID"], "77")
+        if case .climber(let meta) = state.metadata {
+            XCTAssertEqual(meta.windowID, 77)
+        } else {
+            XCTFail("Expected .climber metadata")
+        }
 
         // Move to perform phase
         context = BehaviorContext(
@@ -734,7 +744,11 @@ final class BehaviorTests: XCTestCase {
         let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
 
         var state = behavior.start(context: context, random: random)
-        XCTAssertEqual(state.metadata["windowID"], "33")
+        if case .climber(let meta) = state.metadata {
+            XCTAssertEqual(meta.windowID, 33)
+        } else {
+            XCTFail("Expected .climber metadata")
+        }
 
         // Move to perform phase
         context = BehaviorContext(
@@ -849,8 +863,12 @@ final class BehaviorTests: XCTestCase {
 
         XCTAssertEqual(state.phase, .enter)
         XCTAssertNotNil(state.animation)
-        XCTAssertNotNil(state.metadata["followDistance"])
-        XCTAssertNotNil(state.metadata["followDuration"])
+        if case .follow(let meta) = state.metadata {
+            XCTAssertGreaterThan(meta.followDistance, 0)
+            XCTAssertGreaterThan(meta.followDuration, 0)
+        } else {
+            XCTFail("Expected .follow metadata")
+        }
     }
 
     func testFollowBehaviorPhaseTransitions() {

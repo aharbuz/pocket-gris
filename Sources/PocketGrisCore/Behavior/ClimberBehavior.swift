@@ -56,8 +56,10 @@ public struct ClimberBehavior: Behavior {
             duration: duration
         )
 
-        // Store metadata
-        state.metadata["windowIndex"] = String(windowIndex)
+        // Store metadata - track window by ID for stable identity across frame changes
+        if let windowID = window.windowID {
+            state.metadata["windowID"] = String(windowID)
+        }
         state.metadata["windowEdge"] = String(describing: startEdge)
         state.metadata["climbDirection"] = climbDirection ? "positive" : "negative"
         state.metadata["startX"] = String(startPosition.x)
@@ -113,12 +115,22 @@ public struct ClimberBehavior: Behavior {
                 return events
             }
 
-            // Track window movement
-            if let windowIndex = Int(state.metadata["windowIndex"] ?? ""),
-               let origWindowX = Double(state.metadata["windowX"] ?? ""),
-               let origWindowY = Double(state.metadata["windowY"] ?? ""),
-               windowIndex < context.windowFrames.count {
-                let currentWindow = context.windowFrames[windowIndex]
+            // Track window movement by identity (windowID)
+            if let origWindowX = Double(state.metadata["windowX"] ?? ""),
+               let origWindowY = Double(state.metadata["windowY"] ?? "") {
+                let currentWindow: ScreenRect? = findTrackedWindow(
+                    in: context.windowFrames,
+                    metadata: state.metadata
+                )
+
+                guard let currentWindow = currentWindow else {
+                    // Tracked window has disappeared - gracefully exit
+                    state.phase = .exit
+                    events.append(.phaseChanged(.exit))
+                    state.startTime = context.currentTime
+                    return events
+                }
+
                 let deltaX = currentWindow.x - origWindowX
                 let deltaY = currentWindow.y - origWindowY
 
@@ -207,6 +219,32 @@ public struct ClimberBehavior: Behavior {
     }
 
     // MARK: - Helpers
+
+    /// Find the tracked window by windowID, falling back to frame matching if no ID is available.
+    /// Returns nil if the tracked window has disappeared.
+    private func findTrackedWindow(
+        in windowFrames: [ScreenRect],
+        metadata: [String: String]
+    ) -> ScreenRect? {
+        // Primary: look up by windowID (stable across list reordering)
+        if let windowIDStr = metadata["windowID"],
+           let windowID = Int(windowIDStr) {
+            return windowFrames.first { $0.windowID == windowID }
+        }
+
+        // Fallback for windows without IDs (e.g., tests with plain ScreenRects):
+        // Match by last-known frame position and size
+        if let origW = Double(metadata["windowWidth"] ?? ""),
+           let origH = Double(metadata["windowHeight"] ?? "") {
+            // Find a window that matches the stored dimensions (size must match,
+            // position may have changed due to window movement)
+            return windowFrames.first { window in
+                abs(window.width - origW) < 1.0 && abs(window.height - origH) < 1.0
+            }
+        }
+
+        return nil
+    }
 
     private func createFallbackState(context: BehaviorContext, random: RandomSource) -> BehaviorState {
         // If no windows, fall back to simple stationary behavior at screen edge

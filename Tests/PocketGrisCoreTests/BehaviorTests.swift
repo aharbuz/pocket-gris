@@ -455,7 +455,7 @@ final class BehaviorTests: XCTestCase {
     func testClimberBehaviorStart() {
         let behavior = ClimberBehavior()
         let creature = makeClimberCreature()
-        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600, windowID: 42)]
         let context = BehaviorContext(
             creature: creature,
             screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
@@ -469,7 +469,7 @@ final class BehaviorTests: XCTestCase {
 
         XCTAssertEqual(state.phase, .enter)
         XCTAssertNotNil(state.animation)
-        XCTAssertNotNil(state.metadata["windowIndex"])
+        XCTAssertEqual(state.metadata["windowID"], "42")
         XCTAssertNotNil(state.metadata["windowEdge"])
     }
 
@@ -495,7 +495,7 @@ final class BehaviorTests: XCTestCase {
     func testClimberBehaviorPhaseTransitions() {
         let behavior = ClimberBehavior()
         let creature = makeClimberCreature()
-        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600, windowID: 10)]
         var context = BehaviorContext(
             creature: creature,
             screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
@@ -523,7 +523,7 @@ final class BehaviorTests: XCTestCase {
     func testClimberBehaviorCancel() {
         let behavior = ClimberBehavior()
         let creature = makeClimberCreature()
-        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600, windowID: 10)]
         let context = BehaviorContext(
             creature: creature,
             screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
@@ -542,7 +542,7 @@ final class BehaviorTests: XCTestCase {
     func testClimberBehaviorFollowsWindowMovement() {
         let behavior = ClimberBehavior()
         let creature = makeClimberCreature()
-        var windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        var windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600, windowID: 101)]
         var context = BehaviorContext(
             creature: creature,
             screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
@@ -566,8 +566,8 @@ final class BehaviorTests: XCTestCase {
 
         let positionBeforeMove = state.position
 
-        // Now move the window by 200px to the right and 50px down
-        windowFrames = [ScreenRect(x: 300, y: 150, width: 800, height: 600)]
+        // Now move the window by 200px to the right and 50px down (same windowID)
+        windowFrames = [ScreenRect(x: 300, y: 150, width: 800, height: 600, windowID: 101)]
         context = BehaviorContext(
             creature: creature,
             screenBounds: context.screenBounds,
@@ -589,7 +589,7 @@ final class BehaviorTests: XCTestCase {
     func testClimberBehaviorHandlesWindowClose() {
         let behavior = ClimberBehavior()
         let creature = makeClimberCreature()
-        var windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        var windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600, windowID: 55)]
         var context = BehaviorContext(
             creature: creature,
             screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
@@ -620,10 +620,9 @@ final class BehaviorTests: XCTestCase {
         )
         let events = behavior.update(state: &state, context: context, deltaTime: 0.1)
 
-        // Should still be in perform phase (continues with last known position)
-        // The creature continues climbing at its last known trajectory
-        XCTAssertEqual(state.phase, .perform)
-        XCTAssertFalse(events.contains(.completed))
+        // Should gracefully exit when tracked window disappears
+        XCTAssertEqual(state.phase, .exit)
+        XCTAssertTrue(events.contains(.phaseChanged(.exit)))
     }
 
     func testClimberBehaviorCursorFlee() {
@@ -639,7 +638,7 @@ final class BehaviorTests: XCTestCase {
                 "idle": Animation(name: "idle", frameCount: 8, fps: 6)
             ]
         )
-        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600)]
+        let windowFrames = [ScreenRect(x: 100, y: 100, width: 800, height: 600, windowID: 20)]
         var context = BehaviorContext(
             creature: creature,
             screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
@@ -673,6 +672,99 @@ final class BehaviorTests: XCTestCase {
         // Should flee to exit
         XCTAssertEqual(state.phase, .exit)
         XCTAssertTrue(events.contains(.phaseChanged(.exit)))
+    }
+
+    func testClimberBehaviorWindowDisappearsMidClimb() {
+        // When the tracked window disappears mid-climb, the behavior should gracefully exit
+        let behavior = ClimberBehavior()
+        let creature = makeClimberCreature()
+        let targetWindow = ScreenRect(x: 100, y: 100, width: 800, height: 600, windowID: 77)
+        let otherWindow = ScreenRect(x: 500, y: 200, width: 400, height: 300, windowID: 88)
+        var windowFrames = [targetWindow, otherWindow]
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: windowFrames
+        )
+        // Random: int 0 picks first window (ID 77), int 0 picks top edge
+        let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+        XCTAssertEqual(state.metadata["windowID"], "77")
+
+        // Move to perform phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.3,
+            windowFrames: windowFrames
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.3)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Remove the tracked window (ID 77) but keep the other one (ID 88)
+        windowFrames = [otherWindow]
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.4,
+            windowFrames: windowFrames
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 0.1)
+
+        // Should gracefully exit since tracked window (ID 77) is gone
+        XCTAssertEqual(state.phase, .exit)
+        XCTAssertTrue(events.contains(.phaseChanged(.exit)))
+    }
+
+    func testClimberBehaviorWindowListChangesButTargetPersists() {
+        // When windows are added/removed but the target window remains, climbing should continue
+        let behavior = ClimberBehavior()
+        let creature = makeClimberCreature()
+        let targetWindow = ScreenRect(x: 100, y: 100, width: 800, height: 600, windowID: 33)
+        var windowFrames = [targetWindow]
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: windowFrames
+        )
+        // Random: int 0 picks the window (ID 33), int 0 picks top edge
+        let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+        XCTAssertEqual(state.metadata["windowID"], "33")
+
+        // Move to perform phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.3,
+            windowFrames: windowFrames
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.3)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Add new windows before and after the target - target is now at a different index
+        let newWindow1 = ScreenRect(x: 0, y: 0, width: 300, height: 200, windowID: 11)
+        let newWindow2 = ScreenRect(x: 900, y: 100, width: 500, height: 400, windowID: 99)
+        windowFrames = [newWindow1, newWindow2, targetWindow]  // target is now at index 2, was 0
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.5,
+            windowFrames: windowFrames
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 0.2)
+
+        // Should still be performing (target window ID 33 is still present)
+        XCTAssertEqual(state.phase, .perform)
+        // Should have position updates from normal climbing progress
+        XCTAssertTrue(events.contains(where: {
+            if case .positionChanged = $0 { return true }
+            return false
+        }))
     }
 
     // MARK: - Mock Window Tracker Tests

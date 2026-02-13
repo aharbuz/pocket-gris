@@ -70,7 +70,8 @@ public final class AccessibilityWindowTracker: WindowTracker, @unchecked Sendabl
                 continue
             }
 
-            frames.append(ScreenRect(x: x, y: y, width: width, height: height))
+            let windowID = windowInfo[kCGWindowNumber as String] as? Int
+            frames.append(ScreenRect(x: x, y: y, width: width, height: height, windowID: windowID))
         }
 
         return frames

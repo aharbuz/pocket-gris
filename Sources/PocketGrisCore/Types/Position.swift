@@ -47,12 +47,15 @@ public struct ScreenRect: Equatable, Codable, Sendable {
     public var y: Double
     public var width: Double
     public var height: Double
+    /// Optional system window ID (CGWindowID) for identity tracking
+    public var windowID: Int?
 
-    public init(x: Double, y: Double, width: Double, height: Double) {
+    public init(x: Double, y: Double, width: Double, height: Double, windowID: Int? = nil) {
         self.x = x
         self.y = y
         self.width = width
         self.height = height
+        self.windowID = windowID
     }
 
     public var minX: Double { x }

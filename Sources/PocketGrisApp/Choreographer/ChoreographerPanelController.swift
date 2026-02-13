@@ -84,6 +84,15 @@ final class ChoreographerPanelController: NSObject, NSWindowDelegate {
 
     // MARK: - NSWindowDelegate
 
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        if viewModel.hasUnsavedChanges {
+            // Prevent the window from closing and show the SwiftUI alert instead
+            viewModel.requestClose()
+            return false
+        }
+        return true
+    }
+
     func windowWillClose(_ notification: Notification) {
         window = nil
         viewModel.onClose?()

@@ -43,6 +43,22 @@ struct ChoreographerPanelView: View {
         } message: { scene in
             Text("Are you sure you want to delete \"\(scene.name)\"? This action cannot be undone.")
         }
+        .alert(
+            "Unsaved Changes",
+            isPresented: $viewModel.showUnsavedChangesAlert
+        ) {
+            Button("Save", role: nil) {
+                viewModel.saveAndClose()
+            }
+            Button("Discard", role: .destructive) {
+                viewModel.discardAndClose()
+            }
+            Button("Cancel", role: .cancel) {
+                // Dismiss alert, stay in choreographer
+            }
+        } message: {
+            Text("You have unsaved changes. Would you like to save before closing?")
+        }
     }
 
     // MARK: - Sections
@@ -562,7 +578,7 @@ struct ChoreographerPanelView: View {
                 Spacer()
 
                 Button("Close") {
-                    viewModel.onClose?()
+                    viewModel.requestClose()
                 }
             }
         }

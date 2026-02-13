@@ -46,6 +46,9 @@ final class ChoreographerViewModel: ObservableObject {
     @Published var sceneToDelete: PGScene?
     @Published var showDeleteConfirmation: Bool = false
 
+    // Unsaved changes confirmation state
+    @Published var showUnsavedChangesAlert: Bool = false
+
     // Preview state
     @Published var previewPosition: CGPoint = .zero
     @Published var previewFramePath: String?
@@ -61,11 +64,24 @@ final class ChoreographerViewModel: ObservableObject {
     private let cursorSmoothingSpeed: CGFloat = 60.0  // Higher = faster catch-up (60 gives near-instant tracking)
     private var undoStack: [PGScene] = []
     private let maxUndoLevels = 20
+
+    /// Snapshot of the scene at last save/load point, used for dirty state detection
+    private var savedSnapshot: PGScene?
+
     var onSave: ((PGScene) -> Void)?
     var onClose: (() -> Void)?
     var onSceneDeleted: (() -> Void)?
 
     var canUndo: Bool { !undoStack.isEmpty }
+
+    /// Whether the scene has been modified since last save/load
+    var hasUnsavedChanges: Bool {
+        guard let snapshot = savedSnapshot else {
+            // No snapshot means new scene — dirty if it has any content
+            return hasContent
+        }
+        return currentScene != snapshot
+    }
 
     /// Derive activeCreatureId from selected track
     var activeCreatureId: String? {
@@ -127,6 +143,9 @@ final class ChoreographerViewModel: ObservableObject {
         self.spriteLoader = spriteLoader
         self.sceneStorage = sceneStorage
         self.currentScene = scene ?? PGScene(name: Self.generateUniqueSceneName(storage: sceneStorage, existingScene: nil))
+
+        // Snapshot the loaded scene for dirty state tracking
+        self.savedSnapshot = scene
 
         // Determine default creature: prefer "gris", fall back to first available
         let allCreatures = spriteLoader.allCreatures()
@@ -489,15 +508,37 @@ final class ChoreographerViewModel: ObservableObject {
 
     // MARK: - Scene Actions
 
+    /// Check for unsaved changes before closing; shows alert if dirty, otherwise closes directly.
+    func requestClose() {
+        if hasUnsavedChanges {
+            showUnsavedChangesAlert = true
+        } else {
+            onClose?()
+        }
+    }
+
+    /// Save and then close (used by the unsaved changes alert "Save" action).
+    func saveAndClose() {
+        save()
+        onClose?()
+    }
+
+    /// Discard changes and close (used by the unsaved changes alert "Discard" action).
+    func discardAndClose() {
+        onClose?()
+    }
+
     func save() {
         pruneEmptyTracks()
         isPlacing = false
         onSave?(currentScene)
+        savedSnapshot = currentScene
     }
 
     func newScene() {
         let name = Self.generateUniqueSceneName(storage: sceneStorage, existingScene: currentScene)
         currentScene = PGScene(name: name)
+        savedSnapshot = nil
         selectedTrackIndex = nil
         selectedSegmentIndex = nil
         expandedSegmentIndices.removeAll()
@@ -577,6 +618,7 @@ final class ChoreographerViewModel: ObservableObject {
 
     func loadScene(_ scene: PGScene) {
         currentScene = scene
+        savedSnapshot = scene
         selectedTrackIndex = scene.tracks.isEmpty ? nil : 0
         selectedSegmentIndex = nil
         isPlacing = false

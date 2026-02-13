@@ -44,9 +44,13 @@ final class ChoreographerViewModel {
     var pendingSnapMode: SnapMode = .none
     var pendingDuration: TimeInterval = 2.0
 
-    // Delete confirmation state
+    // Scene delete confirmation state
     var sceneToDelete: PGScene?
     var showDeleteConfirmation: Bool = false
+
+    // Track delete confirmation state
+    var trackIndexToDelete: Int?
+    var showTrackDeleteConfirmation: Bool = false
 
     // Unsaved changes confirmation state
     var showUnsavedChangesAlert: Bool = false
@@ -658,6 +662,35 @@ final class ChoreographerViewModel {
     func cancelDeleteScene() {
         sceneToDelete = nil
         showDeleteConfirmation = false
+    }
+
+    // MARK: - Track Deletion Confirmation
+
+    /// Request deletion confirmation for a track
+    func requestDeleteTrack(at index: Int) {
+        trackIndexToDelete = index
+        showTrackDeleteConfirmation = true
+    }
+
+    /// Confirm and execute track deletion
+    func confirmDeleteTrack() {
+        guard let index = trackIndexToDelete else { return }
+        removeTrack(at: index)
+        trackIndexToDelete = nil
+        showTrackDeleteConfirmation = false
+    }
+
+    /// Cancel track deletion
+    func cancelDeleteTrack() {
+        trackIndexToDelete = nil
+        showTrackDeleteConfirmation = false
+    }
+
+    /// The creature name for the track pending deletion, used in the confirmation message
+    var trackToDeleteCreatureName: String? {
+        guard let index = trackIndexToDelete, index < currentScene.tracks.count else { return nil }
+        let creatureId = currentScene.tracks[index].creatureId
+        return creatures.first(where: { $0.id == creatureId })?.name ?? creatureId
     }
 
     // MARK: - Preview

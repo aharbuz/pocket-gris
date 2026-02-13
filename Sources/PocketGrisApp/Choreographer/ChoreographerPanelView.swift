@@ -59,6 +59,23 @@ struct ChoreographerPanelView: View {
         } message: {
             Text("You have unsaved changes. Would you like to save before closing?")
         }
+        .alert(
+            "Delete Track",
+            isPresented: $viewModel.showTrackDeleteConfirmation
+        ) {
+            Button("Cancel", role: .cancel) {
+                viewModel.cancelDeleteTrack()
+            }
+            Button("Delete", role: .destructive) {
+                viewModel.confirmDeleteTrack()
+            }
+        } message: {
+            if let name = viewModel.trackToDeleteCreatureName {
+                Text("Are you sure you want to delete the track for \"\(name)\"?")
+            } else {
+                Text("Are you sure you want to delete this track?")
+            }
+        }
     }
 
     // MARK: - Sections
@@ -132,6 +149,16 @@ struct ChoreographerPanelView: View {
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
                 }
+
+                Button(role: .destructive) {
+                    viewModel.requestDeleteTrack(at: index)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 11))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Delete track")
             }
             .contentShape(Rectangle())
             .onTapGesture {
@@ -190,7 +217,7 @@ struct ChoreographerPanelView: View {
         )
         .contextMenu {
             Button(role: .destructive) {
-                viewModel.removeTrack(at: index)
+                viewModel.requestDeleteTrack(at: index)
             } label: {
                 Label("Delete Track", systemImage: "trash")
             }

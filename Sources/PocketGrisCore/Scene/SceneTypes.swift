@@ -49,15 +49,48 @@ public struct SceneTrack: Codable, Equatable, Sendable {
         segments: [SceneSegment] = [],
         startDelay: TimeInterval = 0
     ) {
+        precondition(
+            Self.segmentCountIsValid(waypoints: waypoints, segments: segments),
+            "SceneTrack invariant violated: expected \(Self.expectedSegmentCount(for: waypoints)) segments for \(waypoints.count) waypoints, got \(segments.count)"
+        )
         self.creatureId = creatureId
         self.waypoints = waypoints
         self.segments = segments
         self.startDelay = startDelay
     }
 
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.creatureId = try container.decode(String.self, forKey: .creatureId)
+        self.waypoints = try container.decode([Position].self, forKey: .waypoints)
+        self.segments = try container.decode([SceneSegment].self, forKey: .segments)
+        self.startDelay = try container.decode(TimeInterval.self, forKey: .startDelay)
+
+        guard Self.segmentCountIsValid(waypoints: waypoints, segments: segments) else {
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "SceneTrack invariant violated: expected \(Self.expectedSegmentCount(for: waypoints)) segments for \(waypoints.count) waypoints, got \(segments.count)"
+                )
+            )
+        }
+    }
+
     /// Whether the track has valid structure (segments == waypoints - 1)
     public var isValid: Bool {
         waypoints.count >= 2 && segments.count == waypoints.count - 1
+    }
+
+    // MARK: - Invariant Helpers
+
+    /// Expected segment count for a given waypoint array
+    private static func expectedSegmentCount(for waypoints: [Position]) -> Int {
+        max(waypoints.count - 1, 0)
+    }
+
+    /// Check if segment count matches waypoint count according to the invariant
+    private static func segmentCountIsValid(waypoints: [Position], segments: [SceneSegment]) -> Bool {
+        segments.count == expectedSegmentCount(for: waypoints)
     }
 }
 

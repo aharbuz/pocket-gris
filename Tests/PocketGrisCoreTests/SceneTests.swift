@@ -13,11 +13,11 @@ final class SceneTests: XCTestCase {
     }
 
     func testSceneTrackValidation() {
-        // Empty track is invalid
+        // Empty track is structurally correct but not playable
         let empty = SceneTrack(creatureId: "gris")
         XCTAssertFalse(empty.isValid)
 
-        // Single waypoint is invalid
+        // Single waypoint is structurally correct but not playable
         let single = SceneTrack(
             creatureId: "gris",
             waypoints: [Position(x: 0, y: 0)]
@@ -31,17 +31,158 @@ final class SceneTests: XCTestCase {
             segments: [SceneSegment(animationName: "walk-left")]
         )
         XCTAssertTrue(valid.isValid)
+    }
 
-        // Mismatched counts = invalid
-        let mismatch = SceneTrack(
+    // MARK: - SceneTrack Init Validation
+
+    func testSceneTrackInitValidConstruction() {
+        // 0 waypoints, 0 segments
+        let empty = SceneTrack(creatureId: "gris")
+        XCTAssertEqual(empty.waypoints.count, 0)
+        XCTAssertEqual(empty.segments.count, 0)
+
+        // 1 waypoint, 0 segments
+        let single = SceneTrack(creatureId: "gris", waypoints: [Position(x: 0, y: 0)])
+        XCTAssertEqual(single.waypoints.count, 1)
+        XCTAssertEqual(single.segments.count, 0)
+
+        // 2 waypoints, 1 segment
+        let two = SceneTrack(
             creatureId: "gris",
             waypoints: [Position(x: 0, y: 0), Position(x: 100, y: 100)],
+            segments: [SceneSegment(animationName: "walk-left")]
+        )
+        XCTAssertEqual(two.waypoints.count, 2)
+        XCTAssertEqual(two.segments.count, 1)
+
+        // 3 waypoints, 2 segments
+        let three = SceneTrack(
+            creatureId: "gris",
+            waypoints: [Position(x: 0, y: 0), Position(x: 100, y: 100), Position(x: 200, y: 200)],
             segments: [
                 SceneSegment(animationName: "walk-left"),
-                SceneSegment(animationName: "idle")
+                SceneSegment(animationName: "walk-right")
             ]
         )
-        XCTAssertFalse(mismatch.isValid)
+        XCTAssertEqual(three.waypoints.count, 3)
+        XCTAssertEqual(three.segments.count, 2)
+    }
+
+    func testSceneTrackDecodingRejectsMismatchedCounts() throws {
+        // 2 waypoints but 2 segments (should be 1)
+        let json = """
+        {
+            "creatureId": "gris",
+            "waypoints": [{"x": 0, "y": 0}, {"x": 100, "y": 100}],
+            "segments": [
+                {"animationName": "walk-left", "duration": 2.0, "snapMode": "none"},
+                {"animationName": "idle", "duration": 1.0, "snapMode": "none"}
+            ],
+            "startDelay": 0
+        }
+        """
+        let data = json.data(using: .utf8)!
+        XCTAssertThrowsError(try JSONDecoder().decode(SceneTrack.self, from: data)) { error in
+            guard case DecodingError.dataCorrupted(let context) = error else {
+                XCTFail("Expected DecodingError.dataCorrupted, got \(error)")
+                return
+            }
+            XCTAssertTrue(context.debugDescription.contains("invariant violated"))
+        }
+    }
+
+    func testSceneTrackDecodingRejectsTooFewSegments() throws {
+        // 3 waypoints but 0 segments (should be 2)
+        let json = """
+        {
+            "creatureId": "gris",
+            "waypoints": [{"x": 0, "y": 0}, {"x": 100, "y": 100}, {"x": 200, "y": 200}],
+            "segments": [],
+            "startDelay": 0
+        }
+        """
+        let data = json.data(using: .utf8)!
+        XCTAssertThrowsError(try JSONDecoder().decode(SceneTrack.self, from: data)) { error in
+            guard case DecodingError.dataCorrupted = error else {
+                XCTFail("Expected DecodingError.dataCorrupted, got \(error)")
+                return
+            }
+        }
+    }
+
+    func testSceneTrackDecodingRejectsSegmentsWithNoWaypoints() throws {
+        // 0 waypoints but 1 segment (should be 0)
+        let json = """
+        {
+            "creatureId": "gris",
+            "waypoints": [],
+            "segments": [{"animationName": "walk-left", "duration": 2.0, "snapMode": "none"}],
+            "startDelay": 0
+        }
+        """
+        let data = json.data(using: .utf8)!
+        XCTAssertThrowsError(try JSONDecoder().decode(SceneTrack.self, from: data)) { error in
+            guard case DecodingError.dataCorrupted = error else {
+                XCTFail("Expected DecodingError.dataCorrupted, got \(error)")
+                return
+            }
+        }
+    }
+
+    func testSceneTrackDecodingAcceptsValidData() throws {
+        // Empty track
+        let emptyJson = """
+        {"creatureId": "gris", "waypoints": [], "segments": [], "startDelay": 0}
+        """
+        let empty = try JSONDecoder().decode(SceneTrack.self, from: emptyJson.data(using: .utf8)!)
+        XCTAssertEqual(empty.creatureId, "gris")
+
+        // Single waypoint
+        let singleJson = """
+        {"creatureId": "gris", "waypoints": [{"x": 0, "y": 0}], "segments": [], "startDelay": 0}
+        """
+        let single = try JSONDecoder().decode(SceneTrack.self, from: singleJson.data(using: .utf8)!)
+        XCTAssertEqual(single.waypoints.count, 1)
+
+        // Two waypoints, one segment
+        let validJson = """
+        {
+            "creatureId": "gris",
+            "waypoints": [{"x": 0, "y": 0}, {"x": 100, "y": 100}],
+            "segments": [{"animationName": "walk-left", "duration": 2.0, "snapMode": "none"}],
+            "startDelay": 0
+        }
+        """
+        let valid = try JSONDecoder().decode(SceneTrack.self, from: validJson.data(using: .utf8)!)
+        XCTAssertEqual(valid.waypoints.count, 2)
+        XCTAssertEqual(valid.segments.count, 1)
+    }
+
+    func testSceneDecodingSkipsInvalidTracks() throws {
+        // A Scene with one valid track and one invalid track in JSON
+        // The Scene itself should fail to decode because the invalid track throws
+        let json = """
+        {
+            "id": "test",
+            "name": "Mixed Scene",
+            "tracks": [
+                {
+                    "creatureId": "gris",
+                    "waypoints": [{"x": 0, "y": 0}, {"x": 100, "y": 100}],
+                    "segments": [{"animationName": "walk-left", "duration": 2.0, "snapMode": "none"}],
+                    "startDelay": 0
+                },
+                {
+                    "creatureId": "gris",
+                    "waypoints": [{"x": 0, "y": 0}],
+                    "segments": [{"animationName": "walk-left", "duration": 2.0, "snapMode": "none"}],
+                    "startDelay": 0
+                }
+            ]
+        }
+        """
+        let data = json.data(using: .utf8)!
+        XCTAssertThrowsError(try JSONDecoder().decode(Scene.self, from: data))
     }
 
     func testScenePlayability() {

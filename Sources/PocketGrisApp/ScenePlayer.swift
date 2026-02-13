@@ -43,10 +43,10 @@ final class ScenePlayer {
 
             if delay > 0 {
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                    self?.launchTrack(creature: creature, behavior: behavior, spriteLoader: spriteLoader, windowTracker: windowTracker, cursorTracker: cursorTracker)
+                    self?.launchTrack(creature: creature, behavior: behavior, track: track, spriteLoader: spriteLoader, windowTracker: windowTracker, cursorTracker: cursorTracker)
                 }
             } else {
-                launchTrack(creature: creature, behavior: behavior, spriteLoader: spriteLoader, windowTracker: windowTracker, cursorTracker: cursorTracker)
+                launchTrack(creature: creature, behavior: behavior, track: track, spriteLoader: spriteLoader, windowTracker: windowTracker, cursorTracker: cursorTracker)
             }
         }
     }
@@ -67,14 +67,14 @@ final class ScenePlayer {
     private func launchTrack(
         creature: Creature,
         behavior: ScriptedBehavior,
+        track: SceneTrack,
         spriteLoader: SpriteLoader,
         windowTracker: WindowTracker?,
         cursorTracker: CursorTracker?
     ) {
         guard isPlaying else { return }
 
-        let screens = NSScreen.screens
-        let targetScreen = screens.isEmpty ? nil : screens[Int.random(in: 0..<screens.count)]
+        let targetScreen = screenForTrack(track) ?? NSScreen.main
         let window = CreatureWindow(screen: targetScreen)
 
         activeWindows.append(window)
@@ -88,6 +88,24 @@ final class ScenePlayer {
         ) { [weak self] in
             self?.trackCompleted()
         }
+    }
+
+    /// Find the NSScreen that contains the track's first waypoint.
+    /// Waypoints are in top-left screen coordinates (Y=0 at top);
+    /// NSScreen uses AppKit global coordinates (Y=0 at bottom of primary screen).
+    private func screenForTrack(_ track: SceneTrack) -> NSScreen? {
+        guard let firstWaypoint = track.waypoints.first,
+              let primaryScreen = NSScreen.screens.first else {
+            return nil
+        }
+
+        // Convert waypoint from top-left coords to AppKit global coords.
+        // In AppKit globals, the top of the primary screen is at primaryScreen.frame.maxY.
+        let appKitX = firstWaypoint.x
+        let appKitY = primaryScreen.frame.maxY - firstWaypoint.y
+        let point = NSPoint(x: appKitX, y: appKitY)
+
+        return NSScreen.screens.first(where: { NSMouseInRect(point, $0.frame, false) })
     }
 
     private func trackCompleted() {

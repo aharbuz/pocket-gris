@@ -94,9 +94,12 @@ public final class GlobalCursorTracker: CursorTracker, @unchecked Sendable {
     private func updatePositionFromSystemCursor() {
         let mouseLocation = NSEvent.mouseLocation
 
-        // Convert from bottom-left (Cocoa) to top-left coordinate system
-        guard let screen = NSScreen.main else { return }
-        let y = screen.frame.height - mouseLocation.y
+        // Convert from bottom-left (Cocoa) to top-left coordinate system.
+        // Find the screen the cursor is actually on; fall back to main.
+        guard let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) ?? NSScreen.main else { return }
+        // Use screen.frame.maxY (not height) because NSEvent.mouseLocation returns
+        // global coordinates measured from the bottom of the primary screen.
+        let y = screen.frame.maxY - mouseLocation.y
         let newPosition = Position(x: mouseLocation.x, y: y)
 
         lock.lock()

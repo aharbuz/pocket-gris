@@ -79,6 +79,92 @@ final class BehaviorTests: XCTestCase {
         XCTAssertTrue(events.contains(.completed))
     }
 
+    func testPeekBehaviorNoDuplicatePhaseChangedEvents() {
+        let behavior = PeekBehavior()
+        // Use 0.0 for doubles to get minimum peek duration (3.0s for curious)
+        let random = FixedRandomSource(ints: [0], doubles: [0.0])
+
+        var state = behavior.start(context: testContext, random: random)
+        XCTAssertEqual(state.phase, .enter)
+
+        // Advance through enter phase
+        var context = BehaviorContext(
+            creature: testCreature,
+            screenBounds: testContext.screenBounds,
+            currentTime: 0.6  // Past enter threshold
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.6)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Now set up the scenario that triggers the bug:
+        // Peek duration expired AND cursor within flee threshold simultaneously.
+        // Curious cursorSensitivity = 0.3, fleeThreshold = 80 * (1 - 0.3) = 56 pixels.
+        // Place cursor within 56 pixels of creature position.
+        // startTime was reset to 0.6, peek duration is 3.0, so need currentTime >= 3.6
+        context = BehaviorContext(
+            creature: testCreature,
+            screenBounds: testContext.screenBounds,
+            currentTime: 4.0,
+            cursorPosition: Position(x: state.position.x + 30, y: state.position.y)
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 3.4)
+
+        XCTAssertEqual(state.phase, .exit)
+
+        // Count .phaseChanged(.exit) events - should be exactly 1, not 2
+        let exitPhaseEvents = events.filter { $0 == .phaseChanged(.exit) }
+        XCTAssertEqual(exitPhaseEvents.count, 1, "Should emit exactly one .phaseChanged(.exit), not duplicate")
+    }
+
+    func testPeekBehaviorFullLifecycleNoDuplicatePhaseEvents() {
+        let behavior = PeekBehavior()
+        // Use 0.0 for doubles to get minimum peek duration (3.0s for curious)
+        let random = FixedRandomSource(ints: [0], doubles: [0.0])
+
+        var state = behavior.start(context: testContext, random: random)
+        var allEvents: [BehaviorEvent] = []
+
+        // Step through full lifecycle collecting all events
+        // 1. Enter -> Perform
+        var context = BehaviorContext(
+            creature: testCreature,
+            screenBounds: testContext.screenBounds,
+            currentTime: 0.6
+        )
+        allEvents += behavior.update(state: &state, context: context, deltaTime: 0.6)
+
+        // 2. Perform -> Exit (wait for peek duration)
+        context = BehaviorContext(
+            creature: testCreature,
+            screenBounds: testContext.screenBounds,
+            currentTime: 4.0
+        )
+        allEvents += behavior.update(state: &state, context: context, deltaTime: 3.4)
+
+        // 3. Exit -> Complete
+        context = BehaviorContext(
+            creature: testCreature,
+            screenBounds: testContext.screenBounds,
+            currentTime: 5.5
+        )
+        allEvents += behavior.update(state: &state, context: context, deltaTime: 1.5)
+
+        XCTAssertEqual(state.phase, .complete)
+
+        // Verify exactly one .phaseChanged event per phase transition
+        let phaseChangedEvents = allEvents.filter {
+            if case .phaseChanged = $0 { return true }
+            return false
+        }
+
+        // Should be exactly 3: .perform, .exit, .complete
+        XCTAssertEqual(phaseChangedEvents.count, 3,
+            "Expected exactly 3 phase transitions (perform, exit, complete), got \(phaseChangedEvents)")
+        XCTAssertEqual(phaseChangedEvents[0], .phaseChanged(.perform))
+        XCTAssertEqual(phaseChangedEvents[1], .phaseChanged(.exit))
+        XCTAssertEqual(phaseChangedEvents[2], .phaseChanged(.complete))
+    }
+
     func testPeekBehaviorCancel() {
         let behavior = PeekBehavior()
         let random = FixedRandomSource(ints: [0], doubles: [0.5])

@@ -84,8 +84,8 @@ public struct PeekBehavior: Behavior {
                 transitionToRetreat(state: &state, context: context)
             }
 
-            // Check cursor - might flee early
-            if let cursor = context.cursorPosition {
+            // Check cursor - might flee early (only if still performing)
+            if state.phase == .perform, let cursor = context.cursorPosition {
                 let distance = state.position.distance(to: cursor)
                 let fleeThreshold = 80.0 * (1.0 - context.creature.personality.cursorSensitivity)
                 if distance < fleeThreshold {

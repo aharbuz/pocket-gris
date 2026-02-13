@@ -118,6 +118,7 @@ Background removal is done manually on the exported raw frames, then processed
 - Scene management: delete scenes, scenes list in menu bar
 - Per-behavior/scene preview buttons (replaced random trigger)
 - Unsaved changes confirmation dialog on choreographer close (Save/Discard/Cancel)
+- Codebase audit remediation: CVDisplayLink safety, IPC security hardening, path sanitization, weighted random fix, dead code removal
 
 ### Potential Future Work
 - More creatures and animations
@@ -125,6 +126,9 @@ Background removal is done manually on the exported raw frames, then processed
 - Custom creature editor
 - Drag-and-drop sprite import
 - Notification-triggered appearances
+- Swift 6 migration (`@unchecked Sendable` + NSLock → actors/Mutex)
+- `@Observable` macro migration (requires macOS 14+ platform bump)
+- Test coverage expansion (IPCService, ImageCache, CLI, Settings persistence)
 
 ## Conventions
 
@@ -140,6 +144,8 @@ Background removal is done manually on the exported raw frames, then processed
 - `Scene` and `SceneStorage` in PocketGrisCore conflict with SwiftUI types - use `PGScene`/`PGSceneStorage` typealiases (defined in `ChoreographerViewModel.swift`)
 - AppDelegate is NOT `@MainActor` - classes instantiated as its properties (ScenePlayer, ChoreographerController) can't be `@MainActor` either
 - Launch at login requires a proper .app bundle; SPM builds will log a warning but continue
+- `onChange(of:)` single-parameter form is deprecated but cannot use 2-param replacement until deployment target bumps from macOS 13 to 14
+- Multi-monitor: ScenePlayer places tracks on random screens ignoring waypoint coordinates; cursor Y-flip uses only `NSScreen.main`
 
 ## Files to Know
 

@@ -565,6 +565,63 @@ Restructured Behaviors and Scenes sections with unified toggle/expand pattern:
 
 ---
 
+## Session: 2026-02-13 (audit)
+
+#### Codebase Audit & Remediation (UR-016)
+
+Full audit of PocketGrisCore (23 files), PocketGrisApp (18 files), PocketGrisCLI, tests, and scripts.
+Checked Swift/SwiftUI patterns via Context7. Findings: 5 Critical, 11 High, 21 Medium, 20 Low.
+
+**Commit:** 68cd09c
+
+**Wave 1 — Critical & High-Impact Bug Fixes:**
+- CVDisplayLink use-after-free: added deinit, dispatch to main before state access, [weak] refs
+- Nondeterministic retreatSpeedMultiplier: .chaotic changed from Double.random to fixed 1.2
+- behaviorsEnabled setting now checked in selectRandomTrigger()
+- Weighted random bias: cumulative comparison pattern replaces subtract-and-check
+- TraverseBehavior: cursor boost no longer compounds into stored speed
+- buildSettings() preserves persisted enabled state instead of hardcoding true
+- Double-close lifecycle: isClosing guard in windowWillClose
+- setAboveOverlay now uses its above parameter
+- Force unwrap removed from CreatureWindow.showWithViewModel
+- ImageCache: double-check pattern after lock acquisition
+
+**Wave 2 — Security Hardening:**
+- SceneStorage path injection: sanitizeId() filters to alphanumeric + -_.
+- IPC TOCTOU: per-user pocket-gris-ipc/ directory with 0700 permissions
+- IPC fd leak: startListening() calls stopListening() first
+
+**Wave 3 — Dead Code Cleanup:**
+- Removed: _-prefixed typealiases, testBehavior(), reloadScenes(), previousPosition,
+  unused PositionCalculator instances, scenesEnabled in AppDelegate
+- Consolidated PGSceneLocal/PGSceneStorageLocal → PGScene/PGSceneStorage
+- Renamed ImageCacheTests.swift → SpriteLoaderTests.swift
+
+**Wave 4 — Defensive Fixes:**
+- ClimberBehavior: guard totalDistance > 0 prevents division by zero
+- Animation.frameFilename: guard frameCount > 0
+- onChange deprecation: deferred (requires macOS 14+ platform bump)
+
+**Deferred (out of scope):**
+- M1: @unchecked Sendable → actors (Swift 6 migration)
+- M2: Stringly-typed metadata → typed state
+- M3: PeekBehavior duplicate phase events
+- M5: ClimberBehavior window index staleness
+- M6: Deprecated onChange(of:) (needs macOS 14+)
+- M7-M8: IPC async, ChoreographerController bypass
+- M17: SceneTrack.init allows invalid state
+- M18/M19: Multi-monitor coordinate issues
+- M20: Test coverage expansion
+- M21: Test temp dir cleanup
+- All 20 Low-severity items
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 118 tests passing
+- All Critical and High findings resolved
+
+---
+
 ## Continuation Prompt
 
 ```

@@ -146,7 +146,7 @@ Background removal is done manually on the exported raw frames, then processed
 - `Scene` and `SceneStorage` in PocketGrisCore conflict with SwiftUI types - use `PGScene`/`PGSceneStorage` typealiases (defined in `ChoreographerViewModel.swift`)
 - AppDelegate is NOT `@MainActor` - classes instantiated as its properties (ScenePlayer, ChoreographerController) can't be `@MainActor` either
 - Launch at login requires a proper .app bundle; SPM builds will log a warning but continue
-- `onChange(of:)` single-parameter form is deprecated but cannot use 2-param replacement until deployment target bumps from macOS 13 to 14
+- ~~`onChange(of:)` single-parameter form is deprecated~~ FIXED: Platform bumped to macOS 14, all onChange calls migrated to 2-param form, ObservableObject → @Observable
 - Multi-monitor: ~~ScenePlayer places tracks on random screens~~ FIXED; ~~cursor Y-flip uses only NSScreen.main~~ FIXED
 
 ## Files to Know

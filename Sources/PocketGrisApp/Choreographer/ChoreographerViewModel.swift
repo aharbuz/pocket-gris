@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Observation
 import PocketGrisCore
 
 // Disambiguate from SwiftUI types
@@ -7,9 +8,10 @@ typealias PGScene = PocketGrisCore.Scene
 typealias PGSceneStorage = PocketGrisCore.SceneStorage
 
 /// State for the choreographer editor
-final class ChoreographerViewModel: ObservableObject {
-    @Published var currentScene: PGScene
-    @Published var selectedTrackIndex: Int? {
+@Observable
+final class ChoreographerViewModel {
+    var currentScene: PGScene
+    var selectedTrackIndex: Int? {
         didSet {
             // Reset expanded segments when track changes
             if selectedTrackIndex != oldValue {
@@ -17,18 +19,18 @@ final class ChoreographerViewModel: ObservableObject {
             }
         }
     }
-    @Published var selectedSegmentIndex: Int?
-    @Published var isPlacing: Bool = false {
+    var selectedSegmentIndex: Int?
+    var isPlacing: Bool = false {
         didSet {
             if isPlacing { startPreview() } else { stopPreview() }
         }
     }
 
     /// Tracks which segments are expanded per track (key: track index, value: set of segment indices)
-    @Published var expandedSegmentIndices: [Int: Set<Int>] = [:]
+    var expandedSegmentIndices: [Int: Set<Int>] = [:]
 
     /// Pending segment settings (used when first segment will be created)
-    @Published var pendingAnimation: String = "" {
+    var pendingAnimation: String = "" {
         didSet {
             // Refresh preview when pending animation changes and no segments exist yet
             if pendingAnimation != oldValue && isPlacing {
@@ -39,19 +41,19 @@ final class ChoreographerViewModel: ObservableObject {
             }
         }
     }
-    @Published var pendingSnapMode: SnapMode = .none
-    @Published var pendingDuration: TimeInterval = 2.0
+    var pendingSnapMode: SnapMode = .none
+    var pendingDuration: TimeInterval = 2.0
 
     // Delete confirmation state
-    @Published var sceneToDelete: PGScene?
-    @Published var showDeleteConfirmation: Bool = false
+    var sceneToDelete: PGScene?
+    var showDeleteConfirmation: Bool = false
 
     // Unsaved changes confirmation state
-    @Published var showUnsavedChangesAlert: Bool = false
+    var showUnsavedChangesAlert: Bool = false
 
     // Preview state
-    @Published var previewPosition: CGPoint = .zero
-    @Published var previewFramePath: String?
+    var previewPosition: CGPoint = .zero
+    var previewFramePath: String?
 
     private let spriteLoader: SpriteLoader
     private let sceneStorage: PGSceneStorage?

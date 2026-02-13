@@ -1,20 +1,21 @@
 import Foundation
 import SwiftUI
+import Observation
 import PocketGrisCore
 
 /// Observable view model bridging Core behavior to SwiftUI
-@MainActor
-final class CreatureViewModel: ObservableObject {
+@MainActor @Observable
+final class CreatureViewModel {
     // Position from behavior (target position)
-    @Published var position: Position = .zero
+    var position: Position = .zero
 
     // Smoothly interpolated display position for rendering
-    @Published var displayPosition: Position = .zero
+    var displayPosition: Position = .zero
 
-    @Published var currentFramePath: String?
-    @Published var isVisible: Bool = false
-    @Published var flipHorizontal: Bool = false
-    @Published var opacity: Double = 1.0
+    var currentFramePath: String?
+    var isVisible: Bool = false
+    var flipHorizontal: Bool = false
+    var opacity: Double = 1.0
 
     private let creature: Creature
     private let behavior: any Behavior

@@ -3,7 +3,7 @@ import PocketGrisCore
 
 /// SwiftUI view rendering waypoints, paths, and sprite preview on the overlay
 struct ChoreographerOverlayView: View {
-    @ObservedObject var viewModel: ChoreographerViewModel
+    var viewModel: ChoreographerViewModel
 
     var body: some View {
         GeometryReader { geo in

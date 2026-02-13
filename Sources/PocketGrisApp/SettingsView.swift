@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 import PocketGrisCore
 
 // Disambiguate from SwiftUI.Settings
@@ -6,7 +7,7 @@ typealias AppSettings = PocketGrisCore.Settings
 
 /// SwiftUI settings window for configuring Pocket Gris
 struct SettingsView: View {
-    @StateObject private var viewModel: SettingsViewModel
+    @State private var viewModel: SettingsViewModel
 
     init(
         creatures: [Creature],
@@ -16,7 +17,7 @@ struct SettingsView: View {
         onEditScene: @escaping (PGScene) -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void
     ) {
-        _viewModel = StateObject(wrappedValue: SettingsViewModel(
+        _viewModel = State(wrappedValue: SettingsViewModel(
             creatures: creatures,
             sceneStorage: sceneStorage,
             onTestBehavior: onTestBehavior,
@@ -100,7 +101,7 @@ struct SettingsView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    .onChange(of: viewModel.enabledCreatureIds) { _ in
+                    .onChange(of: viewModel.enabledCreatureIds) { oldValue, newValue in
                         viewModel.applySettings()
                     }
                 }
@@ -131,9 +132,9 @@ struct SettingsView: View {
 
                 Toggle("", isOn: $viewModel.behaviorsEnabled)
                     .labelsHidden()
-                    .onChange(of: viewModel.behaviorsEnabled) { enabled in
+                    .onChange(of: viewModel.behaviorsEnabled) { oldValue, newValue in
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            viewModel.handleBehaviorsToggle(enabled: enabled)
+                            viewModel.handleBehaviorsToggle(enabled: newValue)
                         }
                         viewModel.applySettings()
                     }
@@ -158,7 +159,7 @@ struct SettingsView: View {
                                 Toggle(isOn: viewModel.behaviorEnabledBinding(for: behaviorType)) {
                                     Text(viewModel.behaviorDisplayName(behaviorType))
                                 }
-                                .onChange(of: viewModel.behaviorWeights[behaviorType.rawValue]) { _ in
+                                .onChange(of: viewModel.behaviorWeights[behaviorType.rawValue]) { oldValue, newValue in
                                     viewModel.applySettings()
                                 }
                             }
@@ -219,9 +220,9 @@ struct SettingsView: View {
 
                     Toggle("", isOn: $viewModel.scenesEnabled)
                         .labelsHidden()
-                        .onChange(of: viewModel.scenesEnabled) { enabled in
+                        .onChange(of: viewModel.scenesEnabled) { oldValue, newValue in
                             withAnimation(.easeInOut(duration: 0.2)) {
-                                viewModel.handleScenesToggle(enabled: enabled)
+                                viewModel.handleScenesToggle(enabled: newValue)
                             }
                             viewModel.applySettings()
                         }
@@ -266,7 +267,7 @@ struct SettingsView: View {
                                 Toggle(isOn: viewModel.sceneEnabledBinding(for: scene.id)) {
                                     Text(scene.name)
                                 }
-                                .onChange(of: viewModel.enabledScenes) { _ in
+                                .onChange(of: viewModel.enabledScenes) { oldValue, newValue in
                                     viewModel.applySettings()
                                 }
 
@@ -339,7 +340,7 @@ struct SettingsView: View {
     private var generalSection: some View {
         Section("General") {
             Toggle("Launch at login", isOn: $viewModel.launchAtLogin)
-                .onChange(of: viewModel.launchAtLogin) { _ in
+                .onChange(of: viewModel.launchAtLogin) { oldValue, newValue in
                     viewModel.applySettings()
                 }
 
@@ -352,27 +353,27 @@ struct SettingsView: View {
 
 // MARK: - View Model
 
-@MainActor
-final class SettingsViewModel: ObservableObject {
-    @Published var minInterval: TimeInterval
-    @Published var maxInterval: TimeInterval
-    @Published var launchAtLogin: Bool
-    @Published var enabledCreatureIds: Set<String>
-    @Published var behaviorWeights: [String: Double]
-    @Published var behaviorsEnabled: Bool
-    @Published var behaviorsExpanded: Bool = true
+@MainActor @Observable
+final class SettingsViewModel {
+    var minInterval: TimeInterval
+    var maxInterval: TimeInterval
+    var launchAtLogin: Bool
+    var enabledCreatureIds: Set<String>
+    var behaviorWeights: [String: Double]
+    var behaviorsEnabled: Bool
+    var behaviorsExpanded: Bool = true
     private var behaviorsExpandedBeforeDisable: Bool = true
 
     // Scene-related state
-    @Published var scenesEnabled: Bool
-    @Published var scenesExpanded: Bool = true
+    var scenesEnabled: Bool
+    var scenesExpanded: Bool = true
     private var scenesExpandedBeforeDisable: Bool = true
-    @Published var sceneWeights: [String: Double]
-    @Published var enabledScenes: Set<String>
-    @Published var globalSceneWeight: Double = 1.0
-    @Published var scenes: [PGScene] = []
-    @Published var sceneToDelete: PGScene?
-    @Published var showDeleteConfirmation: Bool = false
+    var sceneWeights: [String: Double]
+    var enabledScenes: Set<String>
+    var globalSceneWeight: Double = 1.0
+    var scenes: [PGScene] = []
+    var sceneToDelete: PGScene?
+    var showDeleteConfirmation: Bool = false
 
     let creatures: [Creature]
     private let sceneStorage: PGSceneStorage

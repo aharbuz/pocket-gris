@@ -1,5 +1,5 @@
 import AppKit
-import Combine
+import Observation
 import PocketGrisCore
 
 /// Orchestrates the choreographer overlay and panel windows
@@ -10,8 +10,7 @@ final class ChoreographerController {
     private var overlayWindow: ChoreographerOverlayWindow?
     private var panelController: ChoreographerPanelController?
     private var viewModel: ChoreographerViewModel?
-    private var placingCancellable: AnyCancellable?
-    private var sceneCancellable: AnyCancellable?
+    private var isObserving: Bool = false
     private let spriteLoader: SpriteLoader
     private let sceneStorage: SceneStorage
     private let scenePlayer: ScenePlayer
@@ -60,11 +59,6 @@ final class ChoreographerController {
         }
         self.viewModel = vm
 
-        // Track scene changes to persist last opened scene
-        sceneCancellable = vm.$currentScene.sink { [weak self] scene in
-            self?.persistLastSceneId(scene.id)
-        }
-
         // Create overlay window
         let overlay = ChoreographerOverlayWindow()
         overlay.setup(viewModel: vm)
@@ -83,25 +77,52 @@ final class ChoreographerController {
         panel.show()
         self.panelController = panel
 
-        // During placement mode, make overlay key so it receives mouse events
-        placingCancellable = vm.$isPlacing.sink { [weak overlay] isPlacing in
-            if isPlacing {
-                overlay?.makeKey()
-            }
-        }
+        // Start observing viewModel changes (scene ID and isPlacing)
+        isObserving = true
+        observeViewModel()
     }
 
     func close() {
-        placingCancellable?.cancel()
-        placingCancellable = nil
-        sceneCancellable?.cancel()
-        sceneCancellable = nil
+        isObserving = false
         viewModel?.isPlacing = false
         overlayWindow?.teardown()
         overlayWindow = nil
         panelController?.close()
         panelController = nil
         viewModel = nil
+    }
+
+    // MARK: - Observation
+
+    /// Observe viewModel changes using the Observation framework.
+    /// Tracks currentScene.id (for persistence) and isPlacing (for overlay key management).
+    private func observeViewModel() {
+        guard isObserving, let vm = viewModel else { return }
+        let currentSceneId = vm.currentScene.id
+
+        withObservationTracking {
+            // Access the properties we want to track
+            _ = vm.currentScene.id
+            _ = vm.isPlacing
+        } onChange: { [weak self] in
+            DispatchQueue.main.async {
+                guard let self, self.isObserving, let vm = self.viewModel else { return }
+
+                // Handle scene ID change
+                let newSceneId = vm.currentScene.id
+                if newSceneId != currentSceneId {
+                    self.persistLastSceneId(newSceneId)
+                }
+
+                // Handle isPlacing change
+                if vm.isPlacing {
+                    self.overlayWindow?.makeKey()
+                }
+
+                // Re-register for the next change
+                self.observeViewModel()
+            }
+        }
     }
 
     // MARK: - Private

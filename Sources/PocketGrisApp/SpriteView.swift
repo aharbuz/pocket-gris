@@ -3,7 +3,7 @@ import PocketGrisCore
 
 /// SwiftUI view for displaying an animated sprite
 struct SpriteView: View {
-    @ObservedObject var viewModel: CreatureViewModel
+    var viewModel: CreatureViewModel
 
     private let spriteSize: CGFloat = 64
 

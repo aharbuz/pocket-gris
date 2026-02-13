@@ -3,7 +3,7 @@ import PocketGrisCore
 
 /// Floating panel UI for the choreographer
 struct ChoreographerPanelView: View {
-    @ObservedObject var viewModel: ChoreographerViewModel
+    @Bindable var viewModel: ChoreographerViewModel
     let sceneStorage: PGSceneStorage
     let scenePlayer: ScenePlayer
     let spriteLoader: SpriteLoader

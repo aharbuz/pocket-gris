@@ -67,6 +67,7 @@ public final class IPCService: @unchecked Sendable {
 
     // MARK: - CLI Side (Send)
 
+    /// Synchronous send — blocks the calling thread while polling for a response.
     public func send(_ message: IPCMessage, timeout: TimeInterval = 5.0) -> IPCResponse? {
         lock.lock()
         defer { lock.unlock() }
@@ -97,6 +98,50 @@ public final class IPCService: @unchecked Sendable {
         }
 
         return IPCResponse(success: false, message: "Timeout waiting for response")
+    }
+
+    /// Async send — suspends instead of blocking while polling for a response.
+    public func send(_ message: IPCMessage, timeout: TimeInterval = 5.0) async -> IPCResponse? {
+        // Perform file writes synchronously under the lock (avoids NSLock in async context)
+        if let earlyReturn = writeCommand(message) {
+            return earlyReturn
+        }
+
+        // Poll for response asynchronously (no lock needed — only this call reads responsePath)
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if let responseData = try? Data(contentsOf: responsePath),
+               let response = try? JSONDecoder().decode(IPCResponse.self, from: responseData) {
+                try? FileManager.default.removeItem(at: responsePath)
+                return response
+            }
+            try? await Task.sleep(nanoseconds: 100_000_000) // 0.1 seconds
+        }
+
+        return IPCResponse(success: false, message: "Timeout waiting for response")
+    }
+
+    /// Writes the command file under the lock. Returns an IPCResponse on failure, nil on success.
+    private func writeCommand(_ message: IPCMessage) -> IPCResponse? {
+        lock.lock()
+        defer { lock.unlock() }
+
+        // Clean up old response
+        try? FileManager.default.removeItem(at: responsePath)
+
+        // Encode message
+        guard let data = try? JSONEncoder().encode(message) else {
+            return IPCResponse(success: false, message: "Failed to encode message")
+        }
+
+        // Write command
+        do {
+            try data.write(to: commandPath)
+        } catch {
+            return IPCResponse(success: false, message: "Failed to write command: \(error)")
+        }
+
+        return nil // success — no early return needed
     }
 
     // MARK: - GUI Side (Listen)

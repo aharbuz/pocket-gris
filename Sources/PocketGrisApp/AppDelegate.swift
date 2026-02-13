@@ -103,7 +103,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem(title: "Settings...", action: #selector(openSettings), keyEquivalent: ","))
 
-        let choreoItem = NSMenuItem(title: "Choreographer...", action: #selector(openChoreographer), keyEquivalent: "C")
+        let choreoItem = NSMenuItem(title: "Choreographer...", action: #selector(openChoreographerFromMenu), keyEquivalent: "C")
         choreoItem.keyEquivalentModifierMask = [.command, .shift]
         menu.addItem(choreoItem)
 
@@ -144,7 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.playScene(scene)
             },
             onEditScene: { [weak self] scene in
-                self?.openChoreographerWithScene(scene)
+                self?.openChoreographer(with: scene)
             },
             onSettingsChanged: { [weak self] settings in
                 self?.scheduler.updateSettings(settings)
@@ -154,7 +154,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    private func openChoreographerWithScene(_ scene: Scene) {
+    private func openChoreographer(with scene: Scene? = nil) {
         if choreographerController == nil {
             choreographerController = ChoreographerController(
                 spriteLoader: spriteLoader,
@@ -167,17 +167,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         choreographerController?.open(scene: scene)
     }
 
-    @objc private func openChoreographer() {
-        if choreographerController == nil {
-            choreographerController = ChoreographerController(
-                spriteLoader: spriteLoader,
-                sceneStorage: sceneStorage,
-                scenePlayer: scenePlayer,
-                windowTracker: windowTracker,
-                cursorTracker: cursorTracker
-            )
-        }
-        choreographerController?.open()
+    @objc private func openChoreographerFromMenu() {
+        openChoreographer()
     }
 
     @objc private func quit() {

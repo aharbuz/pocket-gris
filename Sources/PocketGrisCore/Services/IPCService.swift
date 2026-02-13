@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// IPC commands from CLI to GUI
 public enum IPCCommand: String, Codable, Sendable {
@@ -45,12 +46,16 @@ public struct IPCResponse: Codable, Sendable {
 }
 
 /// File-based IPC service
-public final class IPCService: @unchecked Sendable {
+public final class IPCService: Sendable {
+    // DispatchSourceFileSystemObject and closure are not Sendable but safe behind Mutex
+    private struct State: @unchecked Sendable {
+        var fileMonitor: DispatchSourceFileSystemObject?
+        var messageHandler: (@Sendable (IPCMessage) -> IPCResponse)?
+    }
+
     private let commandPath: URL
     private let responsePath: URL
-    private let lock = NSLock()
-    private var fileMonitor: DispatchSourceFileSystemObject?
-    private var messageHandler: ((IPCMessage) -> IPCResponse)?
+    private let state: Mutex<State>
 
     public init() {
         // Use a per-user subdirectory with restricted permissions instead of bare /tmp
@@ -63,46 +68,46 @@ public final class IPCService: @unchecked Sendable {
         )
         self.commandPath = ipcDir.appendingPathComponent("command.json")
         self.responsePath = ipcDir.appendingPathComponent("response.json")
+        self.state = Mutex(State())
     }
 
     // MARK: - CLI Side (Send)
 
     /// Synchronous send — blocks the calling thread while polling for a response.
     public func send(_ message: IPCMessage, timeout: TimeInterval = 5.0) -> IPCResponse? {
-        lock.lock()
-        defer { lock.unlock() }
+        state.withLock { _ in
+            // Clean up old response
+            try? FileManager.default.removeItem(at: self.responsePath)
 
-        // Clean up old response
-        try? FileManager.default.removeItem(at: responsePath)
-
-        // Write command
-        guard let data = try? JSONEncoder().encode(message) else {
-            return IPCResponse(success: false, message: "Failed to encode message")
-        }
-
-        do {
-            try data.write(to: commandPath)
-        } catch {
-            return IPCResponse(success: false, message: "Failed to write command: \(error)")
-        }
-
-        // Wait for response
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if let responseData = try? Data(contentsOf: responsePath),
-               let response = try? JSONDecoder().decode(IPCResponse.self, from: responseData) {
-                try? FileManager.default.removeItem(at: responsePath)
-                return response
+            // Write command
+            guard let data = try? JSONEncoder().encode(message) else {
+                return IPCResponse(success: false, message: "Failed to encode message")
             }
-            Thread.sleep(forTimeInterval: 0.1)
-        }
 
-        return IPCResponse(success: false, message: "Timeout waiting for response")
+            do {
+                try data.write(to: self.commandPath)
+            } catch {
+                return IPCResponse(success: false, message: "Failed to write command: \(error)")
+            }
+
+            // Wait for response
+            let deadline = Date().addingTimeInterval(timeout)
+            while Date() < deadline {
+                if let responseData = try? Data(contentsOf: self.responsePath),
+                   let response = try? JSONDecoder().decode(IPCResponse.self, from: responseData) {
+                    try? FileManager.default.removeItem(at: self.responsePath)
+                    return response
+                }
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+
+            return IPCResponse(success: false, message: "Timeout waiting for response")
+        }
     }
 
     /// Async send — suspends instead of blocking while polling for a response.
     public func send(_ message: IPCMessage, timeout: TimeInterval = 5.0) async -> IPCResponse? {
-        // Perform file writes synchronously under the lock (avoids NSLock in async context)
+        // Perform file writes synchronously under the lock (avoids blocking in async context)
         if let earlyReturn = writeCommand(message) {
             return earlyReturn
         }
@@ -123,34 +128,35 @@ public final class IPCService: @unchecked Sendable {
 
     /// Writes the command file under the lock. Returns an IPCResponse on failure, nil on success.
     private func writeCommand(_ message: IPCMessage) -> IPCResponse? {
-        lock.lock()
-        defer { lock.unlock() }
+        state.withLock { _ -> IPCResponse? in
+            // Clean up old response
+            try? FileManager.default.removeItem(at: self.responsePath)
 
-        // Clean up old response
-        try? FileManager.default.removeItem(at: responsePath)
+            // Encode message
+            guard let data = try? JSONEncoder().encode(message) else {
+                return IPCResponse(success: false, message: "Failed to encode message")
+            }
 
-        // Encode message
-        guard let data = try? JSONEncoder().encode(message) else {
-            return IPCResponse(success: false, message: "Failed to encode message")
+            // Write command
+            do {
+                try data.write(to: self.commandPath)
+            } catch {
+                return IPCResponse(success: false, message: "Failed to write command: \(error)")
+            }
+
+            return nil // success — no early return needed
         }
-
-        // Write command
-        do {
-            try data.write(to: commandPath)
-        } catch {
-            return IPCResponse(success: false, message: "Failed to write command: \(error)")
-        }
-
-        return nil // success — no early return needed
     }
 
     // MARK: - GUI Side (Listen)
 
-    public func startListening(handler: @escaping (IPCMessage) -> IPCResponse) {
+    public func startListening(handler: @escaping @Sendable (IPCMessage) -> IPCResponse) {
         // Clean up any existing monitor to avoid leaking file descriptors
         stopListening()
 
-        messageHandler = handler
+        state.withLock { s in
+            s.messageHandler = handler
+        }
 
         // Create command file if needed
         if !FileManager.default.fileExists(atPath: commandPath.path) {
@@ -175,17 +181,25 @@ public final class IPCService: @unchecked Sendable {
             close(fd)
         }
 
-        fileMonitor = source
+        state.withLock { s in
+            s.fileMonitor = source
+        }
         source.resume()
     }
 
     public func stopListening() {
-        fileMonitor?.cancel()
-        fileMonitor = nil
+        let monitor = state.withLock { s -> DispatchSourceFileSystemObject? in
+            let m = s.fileMonitor
+            s.fileMonitor = nil
+            return m
+        }
+        monitor?.cancel()
     }
 
     private func handleIncomingMessage() {
-        guard let handler = messageHandler,
+        let handler = state.withLock { $0.messageHandler }
+
+        guard let handler = handler,
               let data = try? Data(contentsOf: commandPath),
               !data.isEmpty,
               let message = try? JSONDecoder().decode(IPCMessage.self, from: data) else {

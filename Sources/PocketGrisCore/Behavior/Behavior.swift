@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Protocol for creature behaviors
 public protocol Behavior: Sendable {
@@ -25,37 +26,41 @@ public protocol Behavior: Sendable {
 // MARK: - Behavior Registry
 
 /// Registry of available behaviors
-public final class BehaviorRegistry: @unchecked Sendable {
+public final class BehaviorRegistry: Sendable {
     public static let shared = BehaviorRegistry()
 
-    private var behaviors: [BehaviorType: any Behavior] = [:]
-    private let lock = NSLock()
+    private struct State: Sendable {
+        var behaviors: [BehaviorType: any Behavior]
+    }
+
+    private let state: Mutex<State>
 
     private init() {
-        // Register default behaviors
-        register(PeekBehavior())
-        register(TraverseBehavior())
-        register(StationaryBehavior())
-        register(ClimberBehavior())
-        register(FollowBehavior())
+        // Build dictionary before initializing Mutex (can't call register before state is set)
+        var dict: [BehaviorType: any Behavior] = [:]
+        let defaults: [any Behavior] = [
+            PeekBehavior(),
+            TraverseBehavior(),
+            StationaryBehavior(),
+            ClimberBehavior(),
+            FollowBehavior()
+        ]
+        for behavior in defaults {
+            dict[behavior.type] = behavior
+        }
+        self.state = Mutex(State(behaviors: dict))
     }
 
     public func register(_ behavior: any Behavior) {
-        lock.lock()
-        defer { lock.unlock() }
-        behaviors[behavior.type] = behavior
+        state.withLock { $0.behaviors[behavior.type] = behavior }
     }
 
     public func behavior(for type: BehaviorType) -> (any Behavior)? {
-        lock.lock()
-        defer { lock.unlock() }
-        return behaviors[type]
+        state.withLock { $0.behaviors[type] }
     }
 
     public func allBehaviors() -> [any Behavior] {
-        lock.lock()
-        defer { lock.unlock() }
-        return Array(behaviors.values)
+        state.withLock { Array($0.behaviors.values) }
     }
 
     public func availableBehaviors(for creature: Creature) -> [any Behavior] {

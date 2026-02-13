@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Protocol for time abstraction (testability)
 public protocol TimeSource: Sendable {
@@ -15,29 +16,22 @@ public struct SystemTimeSource: TimeSource {
 }
 
 /// Mock time source for testing
-public final class MockTimeSource: TimeSource, @unchecked Sendable {
-    private var _now: TimeInterval
-    private let lock = NSLock()
+public final class MockTimeSource: TimeSource, Sendable {
+    private let state: Mutex<TimeInterval>
 
     public init(now: TimeInterval = 0) {
-        self._now = now
+        self.state = Mutex(now)
     }
 
     public var now: TimeInterval {
-        lock.lock()
-        defer { lock.unlock() }
-        return _now
+        state.withLock { $0 }
     }
 
     public func advance(by interval: TimeInterval) {
-        lock.lock()
-        defer { lock.unlock() }
-        _now += interval
+        state.withLock { $0 += interval }
     }
 
     public func set(_ time: TimeInterval) {
-        lock.lock()
-        defer { lock.unlock() }
-        _now = time
+        state.withLock { $0 = time }
     }
 }

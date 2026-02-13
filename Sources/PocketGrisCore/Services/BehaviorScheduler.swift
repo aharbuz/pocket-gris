@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// What the scheduler decided to trigger
 public enum SchedulerTrigger: Sendable {
@@ -7,22 +8,25 @@ public enum SchedulerTrigger: Sendable {
 }
 
 /// Schedules creature appearances at random intervals
-public final class BehaviorScheduler: @unchecked Sendable {
-    public typealias TriggerHandler = (Creature, BehaviorType) -> Void
-    public typealias UnifiedTriggerHandler = (SchedulerTrigger) -> Void
+public final class BehaviorScheduler: Sendable {
+    public typealias TriggerHandler = @Sendable (Creature, BehaviorType) -> Void
+    public typealias UnifiedTriggerHandler = @Sendable (SchedulerTrigger) -> Void
 
-    private var settings: Settings
-    private var creatures: [Creature]
-    private var scenes: [Scene]
-    private var timeSource: TimeSource
-    private var random: RandomSource
-    private var onTrigger: TriggerHandler?
-    private var onUnifiedTrigger: UnifiedTriggerHandler?
+    // DispatchSourceTimer and closures need @unchecked Sendable; they are safe behind Mutex
+    private struct State: @unchecked Sendable {
+        var settings: Settings
+        var creatures: [Creature]
+        var scenes: [Scene]
+        var timeSource: any TimeSource
+        var random: any RandomSource
+        var onTrigger: TriggerHandler?
+        var onUnifiedTrigger: UnifiedTriggerHandler?
+        var timer: DispatchSourceTimer?
+        var nextTriggerTime: TimeInterval = 0
+        var isRunning = false
+    }
 
-    private var timer: DispatchSourceTimer?
-    private var nextTriggerTime: TimeInterval = 0
-    private var isRunning = false
-    private let lock = NSLock()
+    private let state: Mutex<State>
 
     public init(
         settings: Settings = .default,
@@ -31,77 +35,66 @@ public final class BehaviorScheduler: @unchecked Sendable {
         timeSource: TimeSource = SystemTimeSource(),
         random: RandomSource = SystemRandomSource()
     ) {
-        self.settings = settings
-        self.creatures = creatures
-        self.scenes = scenes
-        self.timeSource = timeSource
-        self.random = random
+        self.state = Mutex(State(
+            settings: settings,
+            creatures: creatures,
+            scenes: scenes,
+            timeSource: timeSource,
+            random: random
+        ))
     }
 
     // MARK: - Configuration
 
     public func updateSettings(_ settings: Settings) {
-        lock.lock()
-        defer { lock.unlock() }
-        self.settings = settings
+        state.withLock { $0.settings = settings }
     }
 
     public func updateCreatures(_ creatures: [Creature]) {
-        lock.lock()
-        defer { lock.unlock() }
-        self.creatures = creatures
+        state.withLock { $0.creatures = creatures }
     }
 
     public func updateScenes(_ scenes: [Scene]) {
-        lock.lock()
-        defer { lock.unlock() }
-        self.scenes = scenes
+        state.withLock { $0.scenes = scenes }
     }
 
     public func setTriggerHandler(_ handler: @escaping TriggerHandler) {
-        lock.lock()
-        defer { lock.unlock() }
-        self.onTrigger = handler
+        state.withLock { $0.onTrigger = handler }
     }
 
     public func setUnifiedTriggerHandler(_ handler: @escaping UnifiedTriggerHandler) {
-        lock.lock()
-        defer { lock.unlock() }
-        self.onUnifiedTrigger = handler
+        state.withLock { $0.onUnifiedTrigger = handler }
     }
 
     // MARK: - Control
 
     public func start() {
-        lock.lock()
-        defer { lock.unlock() }
-
-        guard !isRunning else { return }
-        isRunning = true
-        scheduleNextTrigger()
+        state.withLock { s in
+            guard !s.isRunning else { return }
+            s.isRunning = true
+            Self.scheduleNextTriggerImpl(state: &s, scheduler: self)
+        }
     }
 
     public func stop() {
-        lock.lock()
-        defer { lock.unlock() }
-
-        isRunning = false
-        timer?.cancel()
-        timer = nil
+        state.withLock { s in
+            s.isRunning = false
+            s.timer?.cancel()
+            s.timer = nil
+        }
     }
 
     public func triggerNow(creature: Creature? = nil, behavior: BehaviorType? = nil) {
-        lock.lock()
-        let handler = onTrigger
-        let unifiedHandler = onUnifiedTrigger
-        let selectedCreature = creature ?? selectRandomCreature()
-        let selectedBehavior: BehaviorType?
-        if let c = selectedCreature {
-            selectedBehavior = behavior ?? selectRandomBehavior(for: c)
-        } else {
-            selectedBehavior = nil
+        let (handler, unifiedHandler, selectedCreature, selectedBehavior) = state.withLock { s -> (TriggerHandler?, UnifiedTriggerHandler?, Creature?, BehaviorType?) in
+            let c = creature ?? Self.selectRandomCreatureImpl(state: &s)
+            let b: BehaviorType?
+            if let c = c {
+                b = behavior ?? Self.selectRandomBehaviorImpl(for: c, state: &s)
+            } else {
+                b = nil
+            }
+            return (s.onTrigger, s.onUnifiedTrigger, c, b)
         }
-        lock.unlock()
 
         guard let c = selectedCreature, let b = selectedBehavior else { return }
         unifiedHandler?(.behavior(c, b))
@@ -109,10 +102,7 @@ public final class BehaviorScheduler: @unchecked Sendable {
     }
 
     public func triggerScene(_ scene: Scene) {
-        lock.lock()
-        let unifiedHandler = onUnifiedTrigger
-        lock.unlock()
-
+        let unifiedHandler = state.withLock { $0.onUnifiedTrigger }
         unifiedHandler?(.scene(scene))
     }
 
@@ -120,77 +110,80 @@ public final class BehaviorScheduler: @unchecked Sendable {
 
     /// Simulate scheduling for testing/preview
     public func simulate(duration: TimeInterval) -> [(time: TimeInterval, creature: String, behavior: BehaviorType)] {
-        var results: [(TimeInterval, String, BehaviorType)] = []
-        var elapsed: TimeInterval = 0
+        state.withLock { s in
+            var results: [(TimeInterval, String, BehaviorType)] = []
+            var elapsed: TimeInterval = 0
 
-        while elapsed < duration {
-            let interval = settings.randomInterval(using: random)
-            elapsed += interval
+            while elapsed < duration {
+                let interval = s.settings.randomInterval(using: s.random)
+                elapsed += interval
 
-            if elapsed < duration {
-                if let creature = selectRandomCreature(),
-                   let behavior = selectRandomBehavior(for: creature) {
-                    results.append((elapsed, creature.id, behavior))
+                if elapsed < duration {
+                    if let creature = Self.selectRandomCreatureImpl(state: &s),
+                       let behavior = Self.selectRandomBehaviorImpl(for: creature, state: &s) {
+                        results.append((elapsed, creature.id, behavior))
+                    }
                 }
             }
-        }
 
-        return results
+            return results
+        }
     }
 
-    // MARK: - Private
+    // MARK: - Private Impl Variants
 
-    private func scheduleNextTrigger() {
-        guard isRunning else { return }
+    private static func scheduleNextTriggerImpl(state s: inout State, scheduler: BehaviorScheduler) {
+        guard s.isRunning else { return }
 
-        let interval = settings.randomInterval(using: random)
-        nextTriggerTime = timeSource.now + interval
+        let interval = s.settings.randomInterval(using: s.random)
+        s.nextTriggerTime = s.timeSource.now + interval
 
-        timer?.cancel()
+        s.timer?.cancel()
 
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + interval)
-        timer.setEventHandler { [weak self] in
-            self?.handleTrigger()
+        timer.setEventHandler { [weak scheduler] in
+            scheduler?.handleTrigger()
         }
-        self.timer = timer
+        s.timer = timer
         timer.resume()
     }
 
     private func handleTrigger() {
-        lock.lock()
-        guard isRunning, settings.enabled else {
-            lock.unlock()
-            return
+        // First lock: read state, select trigger, get handlers
+        let (handler, unifiedHandler, trigger) = state.withLock { s -> (TriggerHandler?, UnifiedTriggerHandler?, SchedulerTrigger?) in
+            guard s.isRunning, s.settings.enabled else {
+                return (nil, nil, nil)
+            }
+            let h = s.onTrigger
+            let uh = s.onUnifiedTrigger
+            let t = Self.selectRandomTriggerImpl(state: &s)
+            return (h, uh, t)
         }
 
-        let handler = onTrigger
-        let unifiedHandler = onUnifiedTrigger
-        let trigger = selectRandomTrigger()
-        lock.unlock()
-
+        // Call handlers outside lock
         if let trigger = trigger {
             unifiedHandler?(trigger)
-            // Also call legacy handler for behavior triggers
             if case .behavior(let c, let b) = trigger {
                 handler?(c, b)
             }
         }
 
-        lock.lock()
-        scheduleNextTrigger()
-        lock.unlock()
+        // Second lock: schedule next trigger
+        state.withLock { s in
+            Self.scheduleNextTriggerImpl(state: &s, scheduler: self)
+        }
     }
 
-    private func selectRandomTrigger() -> SchedulerTrigger? {
+    private static func selectRandomTriggerImpl(state s: inout State) -> SchedulerTrigger? {
         // Build weighted pool of behaviors and scenes
         var pool: [(SchedulerTrigger, Double)] = []
 
         // Add behavior triggers (only if behaviors are enabled)
-        if settings.behaviorsEnabled, let creature = selectRandomCreature() {
+        if s.settings.behaviorsEnabled, let creature = selectRandomCreatureImpl(state: &s) {
             let available = BehaviorRegistry.shared.availableBehaviors(for: creature)
             for behavior in available {
-                let weight = settings.behaviorWeights[behavior.type.rawValue] ?? 1.0
+                let weight = s.settings.behaviorWeights[behavior.type.rawValue] ?? 1.0
                 if weight > 0 {
                     pool.append((.behavior(creature, behavior.type), weight))
                 }
@@ -198,10 +191,10 @@ public final class BehaviorScheduler: @unchecked Sendable {
         }
 
         // Add scene triggers (only if scenes are enabled)
-        if settings.scenesEnabled {
-            let playableScenes = scenes.filter { $0.isPlayable }
+        if s.settings.scenesEnabled {
+            let playableScenes = s.scenes.filter { $0.isPlayable }
             for scene in playableScenes {
-                let weight = settings.sceneWeights[scene.id] ?? 1.0
+                let weight = s.settings.sceneWeights[scene.id] ?? 1.0
                 if weight > 0 {
                     pool.append((.scene(scene), weight))
                 }
@@ -213,7 +206,7 @@ public final class BehaviorScheduler: @unchecked Sendable {
         let totalWeight = pool.reduce(0) { $0 + $1.1 }
         guard totalWeight > 0 else { return pool.first?.0 }
 
-        let roll = random.double(in: 0...totalWeight)
+        let roll = s.random.double(in: 0...totalWeight)
         var cumulative = 0.0
         for (trigger, weight) in pool {
             cumulative += weight
@@ -226,34 +219,34 @@ public final class BehaviorScheduler: @unchecked Sendable {
         return pool.last?.0
     }
 
-    private func selectRandomCreature() -> Creature? {
-        var pool = creatures
+    private static func selectRandomCreatureImpl(state s: inout State) -> Creature? {
+        var pool = s.creatures
 
         // Filter by enabled creatures if specified
-        if !settings.enabledCreatures.isEmpty {
-            pool = pool.filter { settings.enabledCreatures.contains($0.id) }
+        if !s.settings.enabledCreatures.isEmpty {
+            pool = pool.filter { s.settings.enabledCreatures.contains($0.id) }
         }
 
         guard !pool.isEmpty else { return nil }
 
-        let index = random.int(in: 0..<pool.count)
+        let index = s.random.int(in: 0..<pool.count)
         return pool[index]
     }
 
-    private func selectRandomBehavior(for creature: Creature) -> BehaviorType? {
+    private static func selectRandomBehaviorImpl(for creature: Creature, state s: inout State) -> BehaviorType? {
         let available = BehaviorRegistry.shared.availableBehaviors(for: creature)
         guard !available.isEmpty else { return nil }
 
         // Apply behavior weights
         let weighted: [(BehaviorType, Double)] = available.map { behavior in
-            let weight = settings.behaviorWeights[behavior.type.rawValue] ?? 1.0
+            let weight = s.settings.behaviorWeights[behavior.type.rawValue] ?? 1.0
             return (behavior.type, weight)
         }
 
         let totalWeight = weighted.reduce(0) { $0 + $1.1 }
         guard totalWeight > 0 else { return available.first?.type }
 
-        let roll = random.double(in: 0...totalWeight)
+        let roll = s.random.double(in: 0...totalWeight)
         var cumulative = 0.0
         for (type, weight) in weighted {
             cumulative += weight

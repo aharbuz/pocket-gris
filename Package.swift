@@ -1,10 +1,10 @@
-// swift-tools-version: 5.9
+// swift-tools-version: 6.0
 import PackageDescription
 
 let package = Package(
     name: "pocket-gris",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v15)
     ],
     products: [
         .library(
@@ -54,5 +54,6 @@ let package = Package(
             dependencies: ["PocketGrisCore"],
             path: "Tests/PocketGrisCoreTests"
         )
-    ]
+    ],
+    swiftLanguageModes: [.v5]
 )

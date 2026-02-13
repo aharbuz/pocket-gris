@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 #if canImport(AppKit)
 import AppKit
@@ -15,21 +16,25 @@ public protocol CursorTracker: Sendable {
 
 /// Global cursor tracker using NSEvent monitors
 /// Tracks cursor position system-wide, not just within our app's windows
-public final class GlobalCursorTracker: CursorTracker, @unchecked Sendable {
-    private let lock = NSLock()
-    private var currentPosition: Position?
-    private var lastUpdateTime: TimeInterval = 0
-    private var velocity: Position = .zero
+public final class GlobalCursorTracker: CursorTracker, Sendable {
+    // Monitor tokens (Any?) are not Sendable but are safe behind Mutex
+    private struct State: @unchecked Sendable {
+        var currentPosition: Position?
+        var lastUpdateTime: TimeInterval = 0
+        var velocity: Position = .zero
+        #if canImport(AppKit)
+        var globalMonitor: Any?
+        var localMonitor: Any?
+        #endif
+    }
 
-    #if canImport(AppKit)
-    private var globalMonitor: Any?
-    private var localMonitor: Any?
-    #endif
+    private let state: Mutex<State>
 
     /// Update rate for velocity calculation (seconds)
     private let velocitySmoothing: Double = 0.1
 
     public init() {
+        self.state = Mutex(State())
         startMonitoring()
     }
 
@@ -38,15 +43,11 @@ public final class GlobalCursorTracker: CursorTracker, @unchecked Sendable {
     }
 
     public func getCurrentPosition() -> Position? {
-        lock.lock()
-        defer { lock.unlock() }
-        return currentPosition
+        state.withLock { $0.currentPosition }
     }
 
     public func getCursorVelocity() -> Position? {
-        lock.lock()
-        defer { lock.unlock() }
-        return velocity
+        state.withLock { $0.velocity }
     }
 
     // MARK: - Monitoring
@@ -57,31 +58,41 @@ public final class GlobalCursorTracker: CursorTracker, @unchecked Sendable {
         updatePositionFromSystemCursor()
 
         // Global monitor for events outside our app
-        globalMonitor = NSEvent.addGlobalMonitorForEvents(
+        let globalMon = NSEvent.addGlobalMonitorForEvents(
             matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
         ) { [weak self] event in
             self?.handleMouseEvent(event)
         }
 
         // Local monitor for events within our app
-        localMonitor = NSEvent.addLocalMonitorForEvents(
+        let localMon = NSEvent.addLocalMonitorForEvents(
             matching: [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
         ) { [weak self] event in
             self?.handleMouseEvent(event)
             return event
+        }
+
+        state.withLock { s in
+            s.globalMonitor = globalMon
+            s.localMonitor = localMon
         }
         #endif
     }
 
     private func stopMonitoring() {
         #if canImport(AppKit)
-        if let monitor = globalMonitor {
-            NSEvent.removeMonitor(monitor)
-            globalMonitor = nil
+        let (globalMon, localMon) = state.withLock { s -> (Any?, Any?) in
+            let g = s.globalMonitor
+            let l = s.localMonitor
+            s.globalMonitor = nil
+            s.localMonitor = nil
+            return (g, l)
         }
-        if let monitor = localMonitor {
+        if let monitor = globalMon {
             NSEvent.removeMonitor(monitor)
-            localMonitor = nil
+        }
+        if let monitor = localMon {
+            NSEvent.removeMonitor(monitor)
         }
         #endif
     }
@@ -102,31 +113,30 @@ public final class GlobalCursorTracker: CursorTracker, @unchecked Sendable {
         let y = screen.frame.maxY - mouseLocation.y
         let newPosition = Position(x: mouseLocation.x, y: y)
 
-        lock.lock()
-        defer { lock.unlock() }
+        state.withLock { s in
+            let now = CACurrentMediaTime()
+            let deltaTime = now - s.lastUpdateTime
 
-        let now = CACurrentMediaTime()
-        let deltaTime = now - lastUpdateTime
+            // Calculate velocity if we have a previous position and reasonable time delta
+            if let prevPos = s.currentPosition, deltaTime > 0 && deltaTime < 1.0 {
+                let dx = newPosition.x - prevPos.x
+                let dy = newPosition.y - prevPos.y
 
-        // Calculate velocity if we have a previous position and reasonable time delta
-        if let prevPos = currentPosition, deltaTime > 0 && deltaTime < 1.0 {
-            let dx = newPosition.x - prevPos.x
-            let dy = newPosition.y - prevPos.y
+                // Smooth velocity calculation
+                let newVelX = dx / deltaTime
+                let newVelY = dy / deltaTime
 
-            // Smooth velocity calculation
-            let newVelX = dx / deltaTime
-            let newVelY = dy / deltaTime
+                // Exponential smoothing
+                let alpha = min(deltaTime / self.velocitySmoothing, 1.0)
+                s.velocity = Position(
+                    x: s.velocity.x * (1 - alpha) + newVelX * alpha,
+                    y: s.velocity.y * (1 - alpha) + newVelY * alpha
+                )
+            }
 
-            // Exponential smoothing
-            let alpha = min(deltaTime / velocitySmoothing, 1.0)
-            velocity = Position(
-                x: velocity.x * (1 - alpha) + newVelX * alpha,
-                y: velocity.y * (1 - alpha) + newVelY * alpha
-            )
+            s.currentPosition = newPosition
+            s.lastUpdateTime = now
         }
-
-        currentPosition = newPosition
-        lastUpdateTime = now
     }
     #endif
 
@@ -139,65 +149,51 @@ public final class GlobalCursorTracker: CursorTracker, @unchecked Sendable {
 }
 
 /// Mock cursor tracker for testing
-public final class MockCursorTracker: CursorTracker, @unchecked Sendable {
-    private var _position: Position?
-    private var _velocity: Position?
-    private let lock = NSLock()
+public final class MockCursorTracker: CursorTracker, Sendable {
+    private struct State: Sendable {
+        var position: Position?
+        var velocity: Position?
+    }
+
+    private let state: Mutex<State>
 
     public var position: Position? {
         get {
-            lock.lock()
-            defer { lock.unlock() }
-            return _position
+            state.withLock { $0.position }
         }
         set {
-            lock.lock()
-            defer { lock.unlock() }
-            _position = newValue
+            state.withLock { $0.position = newValue }
         }
     }
 
     public var cursorVelocity: Position? {
         get {
-            lock.lock()
-            defer { lock.unlock() }
-            return _velocity
+            state.withLock { $0.velocity }
         }
         set {
-            lock.lock()
-            defer { lock.unlock() }
-            _velocity = newValue
+            state.withLock { $0.velocity = newValue }
         }
     }
 
     public init(position: Position? = nil, velocity: Position? = nil) {
-        self._position = position
-        self._velocity = velocity
+        self.state = Mutex(State(position: position, velocity: velocity))
     }
 
     public func getCurrentPosition() -> Position? {
-        lock.lock()
-        defer { lock.unlock() }
-        return _position
+        state.withLock { $0.position }
     }
 
     public func getCursorVelocity() -> Position? {
-        lock.lock()
-        defer { lock.unlock() }
-        return _velocity
+        state.withLock { $0.velocity }
     }
 
     /// Move cursor to simulate user input
     public func moveTo(_ position: Position) {
-        lock.lock()
-        defer { lock.unlock() }
-        _position = position
+        state.withLock { $0.position = position }
     }
 
     /// Set velocity to simulate cursor movement
     public func setVelocity(_ velocity: Position) {
-        lock.lock()
-        defer { lock.unlock() }
-        _velocity = velocity
+        state.withLock { $0.velocity = velocity }
     }
 }

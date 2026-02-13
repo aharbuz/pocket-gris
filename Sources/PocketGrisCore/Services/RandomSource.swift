@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// Protocol for random number generation (testability)
 public protocol RandomSource: Sendable {
@@ -25,35 +26,32 @@ public struct SystemRandomSource: RandomSource {
 }
 
 /// Seeded random source for reproducible tests
-public final class SeededRandomSource: RandomSource, @unchecked Sendable {
-    private var generator: RandomNumberGenerator
-    private let lock = NSLock()
+public final class SeededRandomSource: RandomSource, Sendable {
+    private struct State: Sendable {
+        var generator: SeededGenerator
+    }
+
+    private let state: Mutex<State>
 
     public init(seed: UInt64) {
-        self.generator = SeededGenerator(seed: seed)
+        self.state = Mutex(State(generator: SeededGenerator(seed: seed)))
     }
 
     public func int(in range: Range<Int>) -> Int {
-        lock.lock()
-        defer { lock.unlock() }
-        return Int.random(in: range, using: &generator)
+        state.withLock { Int.random(in: range, using: &$0.generator) }
     }
 
     public func double(in range: ClosedRange<Double>) -> Double {
-        lock.lock()
-        defer { lock.unlock() }
-        return Double.random(in: range, using: &generator)
+        state.withLock { Double.random(in: range, using: &$0.generator) }
     }
 
     public func bool() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        return Bool.random(using: &generator)
+        state.withLock { Bool.random(using: &$0.generator) }
     }
 }
 
 /// Simple seeded RNG using xorshift
-private struct SeededGenerator: RandomNumberGenerator {
+private struct SeededGenerator: RandomNumberGenerator, Sendable {
     private var state: UInt64
 
     init(seed: UInt64) {
@@ -69,42 +67,47 @@ private struct SeededGenerator: RandomNumberGenerator {
 }
 
 /// Fixed sequence random source for deterministic testing
-public final class FixedRandomSource: RandomSource, @unchecked Sendable {
-    private var intValues: [Int]
-    private var doubleValues: [Double]
-    private var boolValues: [Bool]
-    private var intIndex = 0
-    private var doubleIndex = 0
-    private var boolIndex = 0
-    private let lock = NSLock()
+public final class FixedRandomSource: RandomSource, Sendable {
+    private struct State: Sendable {
+        var intValues: [Int]
+        var doubleValues: [Double]
+        var boolValues: [Bool]
+        var intIndex: Int = 0
+        var doubleIndex: Int = 0
+        var boolIndex: Int = 0
+    }
+
+    private let state: Mutex<State>
 
     public init(ints: [Int] = [0], doubles: [Double] = [0.5], bools: [Bool] = [true]) {
-        self.intValues = ints
-        self.doubleValues = doubles
-        self.boolValues = bools
+        self.state = Mutex(State(
+            intValues: ints,
+            doubleValues: doubles,
+            boolValues: bools
+        ))
     }
 
     public func int(in range: Range<Int>) -> Int {
-        lock.lock()
-        defer { lock.unlock() }
-        let value = intValues[intIndex % intValues.count]
-        intIndex += 1
-        return max(range.lowerBound, min(range.upperBound - 1, value))
+        state.withLock { s in
+            let value = s.intValues[s.intIndex % s.intValues.count]
+            s.intIndex += 1
+            return max(range.lowerBound, min(range.upperBound - 1, value))
+        }
     }
 
     public func double(in range: ClosedRange<Double>) -> Double {
-        lock.lock()
-        defer { lock.unlock() }
-        let normalized = doubleValues[doubleIndex % doubleValues.count]
-        doubleIndex += 1
-        return range.lowerBound + (range.upperBound - range.lowerBound) * normalized
+        state.withLock { s in
+            let normalized = s.doubleValues[s.doubleIndex % s.doubleValues.count]
+            s.doubleIndex += 1
+            return range.lowerBound + (range.upperBound - range.lowerBound) * normalized
+        }
     }
 
     public func bool() -> Bool {
-        lock.lock()
-        defer { lock.unlock() }
-        let value = boolValues[boolIndex % boolValues.count]
-        boolIndex += 1
-        return value
+        state.withLock { s in
+            let value = s.boolValues[s.boolIndex % s.boolValues.count]
+            s.boolIndex += 1
+            return value
+        }
     }
 }

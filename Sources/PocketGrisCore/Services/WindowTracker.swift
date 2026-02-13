@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 #if canImport(AppKit)
 import AppKit
@@ -11,9 +12,9 @@ public protocol WindowTracker: Sendable {
 }
 
 /// System window tracker using macOS Accessibility APIs
-public final class AccessibilityWindowTracker: WindowTracker, @unchecked Sendable {
+public final class AccessibilityWindowTracker: WindowTracker, Sendable {
     private let excludedBundleIds: Set<String>
-    private let lock = NSLock()
+    private let mutex = Mutex(())
 
     public init(excludedBundleIds: Set<String> = []) {
         var excluded = excludedBundleIds
@@ -30,51 +31,50 @@ public final class AccessibilityWindowTracker: WindowTracker, @unchecked Sendabl
 
     public func getWindowFrames() -> [ScreenRect] {
         #if canImport(AppKit)
-        lock.lock()
-        defer { lock.unlock() }
+        mutex.withLock { _ in
+            var frames: [ScreenRect] = []
 
-        var frames: [ScreenRect] = []
-
-        // Get all windows using CGWindowListCopyWindowInfo
-        let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
-        guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
-            return frames
-        }
-
-        for windowInfo in windowList {
-            // Skip windows without bounds
-            guard let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: Any],
-                  let x = boundsDict["X"] as? Double,
-                  let y = boundsDict["Y"] as? Double,
-                  let width = boundsDict["Width"] as? Double,
-                  let height = boundsDict["Height"] as? Double else {
-                continue
+            // Get all windows using CGWindowListCopyWindowInfo
+            let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+            guard let windowList = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+                return frames
             }
 
-            // Skip tiny windows (likely system elements)
-            guard width > 50 && height > 50 else {
-                continue
-            }
-
-            // Skip excluded apps
-            if let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? Int32 {
-                if let app = NSRunningApplication(processIdentifier: ownerPID),
-                   let bundleId = app.bundleIdentifier,
-                   excludedBundleIds.contains(bundleId) {
+            for windowInfo in windowList {
+                // Skip windows without bounds
+                guard let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: Any],
+                      let x = boundsDict["X"] as? Double,
+                      let y = boundsDict["Y"] as? Double,
+                      let width = boundsDict["Width"] as? Double,
+                      let height = boundsDict["Height"] as? Double else {
                     continue
                 }
+
+                // Skip tiny windows (likely system elements)
+                guard width > 50 && height > 50 else {
+                    continue
+                }
+
+                // Skip excluded apps
+                if let ownerPID = windowInfo[kCGWindowOwnerPID as String] as? Int32 {
+                    if let app = NSRunningApplication(processIdentifier: ownerPID),
+                       let bundleId = app.bundleIdentifier,
+                       self.excludedBundleIds.contains(bundleId) {
+                        continue
+                    }
+                }
+
+                // Skip windows with low layer (desktop background)
+                if let layer = windowInfo[kCGWindowLayer as String] as? Int, layer < 0 {
+                    continue
+                }
+
+                let windowID = windowInfo[kCGWindowNumber as String] as? Int
+                frames.append(ScreenRect(x: x, y: y, width: width, height: height, windowID: windowID))
             }
 
-            // Skip windows with low layer (desktop background)
-            if let layer = windowInfo[kCGWindowLayer as String] as? Int, layer < 0 {
-                continue
-            }
-
-            let windowID = windowInfo[kCGWindowNumber as String] as? Int
-            frames.append(ScreenRect(x: x, y: y, width: width, height: height, windowID: windowID))
+            return frames
         }
-
-        return frames
         #else
         return []
         #endif
@@ -82,31 +82,28 @@ public final class AccessibilityWindowTracker: WindowTracker, @unchecked Sendabl
 }
 
 /// Mock window tracker for testing
-public final class MockWindowTracker: WindowTracker, @unchecked Sendable {
-    private var _frames: [ScreenRect]
-    private let lock = NSLock()
+public final class MockWindowTracker: WindowTracker, Sendable {
+    private struct State: Sendable {
+        var frames: [ScreenRect]
+    }
+
+    private let state: Mutex<State>
 
     public var frames: [ScreenRect] {
         get {
-            lock.lock()
-            defer { lock.unlock() }
-            return _frames
+            state.withLock { $0.frames }
         }
         set {
-            lock.lock()
-            defer { lock.unlock() }
-            _frames = newValue
+            state.withLock { $0.frames = newValue }
         }
     }
 
     public init(frames: [ScreenRect] = []) {
-        self._frames = frames
+        self.state = Mutex(State(frames: frames))
     }
 
     public func getWindowFrames() -> [ScreenRect] {
-        lock.lock()
-        defer { lock.unlock() }
-        return _frames
+        state.withLock { $0.frames }
     }
 }
 

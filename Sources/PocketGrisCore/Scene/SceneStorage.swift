@@ -1,9 +1,10 @@
 import Foundation
+import Synchronization
 
 /// Persistence layer for scenes (JSON files in Application Support)
-public final class SceneStorage: @unchecked Sendable {
+public final class SceneStorage: Sendable {
     private let directory: URL
-    private let lock = NSLock()
+    private let mutex = Mutex(())
 
     public init(directory: URL? = nil) {
         if let dir = directory {
@@ -20,64 +21,60 @@ public final class SceneStorage: @unchecked Sendable {
 
     /// Load all saved scenes
     public func loadAll() -> [Scene] {
-        lock.lock()
-        defer { lock.unlock() }
+        mutex.withLock { _ in
+            ensureDirectory()
 
-        ensureDirectory()
-
-        guard let contents = try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: nil
-        ) else {
-            return []
-        }
-
-        let decoder = JSONDecoder()
-        return contents
-            .filter { $0.pathExtension == "json" }
-            .compactMap { url -> Scene? in
-                guard let data = try? Data(contentsOf: url),
-                      let scene = try? decoder.decode(Scene.self, from: data) else {
-                    return nil
-                }
-                return scene
+            guard let contents = try? FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: nil
+            ) else {
+                return []
             }
-            .sorted { $0.name < $1.name }
+
+            let decoder = JSONDecoder()
+            return contents
+                .filter { $0.pathExtension == "json" }
+                .compactMap { url -> Scene? in
+                    guard let data = try? Data(contentsOf: url),
+                          let scene = try? decoder.decode(Scene.self, from: data) else {
+                        return nil
+                    }
+                    return scene
+                }
+                .sorted { $0.name < $1.name }
+        }
     }
 
     /// Save a scene to disk
     public func save(scene: Scene) throws {
-        lock.lock()
-        defer { lock.unlock() }
+        try mutex.withLock { _ in
+            ensureDirectory()
 
-        ensureDirectory()
-
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        let data = try encoder.encode(scene)
-        let url = fileURL(for: scene.id)
-        try data.write(to: url)
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(scene)
+            let url = fileURL(for: scene.id)
+            try data.write(to: url)
+        }
     }
 
     /// Delete a scene by ID
     public func delete(id: String) throws {
-        lock.lock()
-        defer { lock.unlock() }
-
-        let url = fileURL(for: id)
-        if FileManager.default.fileExists(atPath: url.path) {
-            try FileManager.default.removeItem(at: url)
+        try mutex.withLock { _ in
+            let url = fileURL(for: id)
+            if FileManager.default.fileExists(atPath: url.path) {
+                try FileManager.default.removeItem(at: url)
+            }
         }
     }
 
     /// Load a single scene by ID
     public func load(id: String) -> Scene? {
-        lock.lock()
-        defer { lock.unlock() }
-
-        let url = fileURL(for: id)
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(Scene.self, from: data)
+        mutex.withLock { _ in
+            let url = fileURL(for: id)
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            return try? JSONDecoder().decode(Scene.self, from: data)
+        }
     }
 
     // MARK: - Validation

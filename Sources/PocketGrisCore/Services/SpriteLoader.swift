@@ -1,12 +1,16 @@
 import Foundation
+import Synchronization
 
 /// Loads and manages sprite assets from disk
-public final class SpriteLoader: @unchecked Sendable {
+public final class SpriteLoader: Sendable {
+
+    private struct State: Sendable {
+        var loadedCreatures: [String: Creature] = [:]
+        var frameCache: [String: [String]] = [:]  // animation name -> frame paths
+    }
 
     private let resourcesPath: URL
-    private var loadedCreatures: [String: Creature] = [:]
-    private var frameCache: [String: [String]] = [:]  // animation name -> frame paths
-    private let lock = NSLock()
+    private let state: Mutex<State>
 
     public init(resourcesPath: URL? = nil) {
         if let path = resourcesPath {
@@ -23,54 +27,53 @@ public final class SpriteLoader: @unchecked Sendable {
                 self.resourcesPath = workingPath
             }
         }
+        self.state = Mutex(State())
     }
 
     // MARK: - Loading
 
     /// Load all creatures from the sprites directory
     public func loadAllCreatures() -> [Creature] {
-        lock.lock()
-        defer { lock.unlock() }
+        state.withLock { s in
+            s.loadedCreatures.removeAll()
 
-        loadedCreatures.removeAll()
-
-        guard let contents = try? FileManager.default.contentsOfDirectory(
-            at: resourcesPath,
-            includingPropertiesForKeys: [.isDirectoryKey]
-        ) else {
-            return []
-        }
-
-        for url in contents {
-            guard url.hasDirectoryPath else { continue }
-
-            if let creature = loadCreature(at: url) {
-                loadedCreatures[creature.id] = creature
+            guard let contents = try? FileManager.default.contentsOfDirectory(
+                at: resourcesPath,
+                includingPropertiesForKeys: [.isDirectoryKey]
+            ) else {
+                return []
             }
-        }
 
-        return Array(loadedCreatures.values)
+            for url in contents {
+                guard url.hasDirectoryPath else { continue }
+
+                if let creature = Self.loadCreatureImpl(at: url, state: &s) {
+                    s.loadedCreatures[creature.id] = creature
+                }
+            }
+
+            return Array(s.loadedCreatures.values)
+        }
     }
 
     /// Load a specific creature by ID
     public func loadCreature(id: String) -> Creature? {
-        lock.lock()
-        defer { lock.unlock() }
+        state.withLock { s in
+            if let cached = s.loadedCreatures[id] {
+                return cached
+            }
 
-        if let cached = loadedCreatures[id] {
-            return cached
+            let creaturePath = resourcesPath.appendingPathComponent(id, isDirectory: true)
+            guard let creature = Self.loadCreatureImpl(at: creaturePath, state: &s) else {
+                return nil
+            }
+
+            s.loadedCreatures[creature.id] = creature
+            return creature
         }
-
-        let creaturePath = resourcesPath.appendingPathComponent(id, isDirectory: true)
-        guard let creature = loadCreature(at: creaturePath) else {
-            return nil
-        }
-
-        loadedCreatures[creature.id] = creature
-        return creature
     }
 
-    private func loadCreature(at url: URL) -> Creature? {
+    private static func loadCreatureImpl(at url: URL, state: inout State) -> Creature? {
         let manifestPath = url.appendingPathComponent("creature.json")
 
         guard let data = try? Data(contentsOf: manifestPath),
@@ -84,14 +87,14 @@ public final class SpriteLoader: @unchecked Sendable {
             let animPath = url.appendingPathComponent(name, isDirectory: true)
             if let frames = loadFramePaths(at: animPath) {
                 let cacheKey = "\(creature.id)/\(name)"
-                frameCache[cacheKey] = frames
+                state.frameCache[cacheKey] = frames
             }
         }
 
         return creature
     }
 
-    private func loadFramePaths(at url: URL) -> [String]? {
+    private static func loadFramePaths(at url: URL) -> [String]? {
         guard let contents = try? FileManager.default.contentsOfDirectory(
             at: url,
             includingPropertiesForKeys: nil
@@ -115,15 +118,13 @@ public final class SpriteLoader: @unchecked Sendable {
         animation: String,
         frame: Int
     ) -> String? {
-        lock.lock()
-        defer { lock.unlock() }
-
-        let cacheKey = "\(creature)/\(animation)"
-        guard let frames = frameCache[cacheKey], frame < frames.count else {
-            return nil
+        state.withLock { s in
+            let cacheKey = "\(creature)/\(animation)"
+            guard let frames = s.frameCache[cacheKey], frame < frames.count else {
+                return nil
+            }
+            return frames[frame]
         }
-
-        return frames[frame]
     }
 
     /// Get all frame paths for an animation
@@ -131,44 +132,37 @@ public final class SpriteLoader: @unchecked Sendable {
         creature: String,
         animation: String
     ) -> [String]? {
-        lock.lock()
-        defer { lock.unlock() }
-
-        let cacheKey = "\(creature)/\(animation)"
-        return frameCache[cacheKey]
+        state.withLock { s in
+            let cacheKey = "\(creature)/\(animation)"
+            return s.frameCache[cacheKey]
+        }
     }
 
     // MARK: - Creature Access
 
     /// Get a loaded creature
     public func creature(id: String) -> Creature? {
-        lock.lock()
-        defer { lock.unlock() }
-        return loadedCreatures[id]
+        state.withLock { $0.loadedCreatures[id] }
     }
 
     /// Get all loaded creatures
     public func allCreatures() -> [Creature] {
-        lock.lock()
-        defer { lock.unlock() }
-        return Array(loadedCreatures.values)
+        state.withLock { Array($0.loadedCreatures.values) }
     }
 
     // MARK: - Validation
 
     /// Check if a creature has all required animations for a behavior
     public func validateBehaviorSupport(creature: Creature, behavior: any Behavior) -> Bool {
-        for animName in behavior.requiredAnimations {
-            let cacheKey = "\(creature.id)/\(animName)"
-            lock.lock()
-            let hasFrames = frameCache[cacheKey] != nil
-            lock.unlock()
-
-            if !hasFrames {
-                return false
+        state.withLock { s in
+            for animName in behavior.requiredAnimations {
+                let cacheKey = "\(creature.id)/\(animName)"
+                if s.frameCache[cacheKey] == nil {
+                    return false
+                }
             }
+            return true
         }
-        return true
     }
 }
 

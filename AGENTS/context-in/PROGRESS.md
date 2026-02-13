@@ -543,6 +543,27 @@ Restructured Behaviors and Scenes sections with unified toggle/expand pattern:
 
 ---
 
+## Session: 2026-02-13 (continued)
+
+#### Unsaved Changes Confirmation (UR-015)
+
+**REQ-032: Prompt to save unsaved changes when closing choreographer** (Route B) → 7baee7f
+- Added dirty state tracking via `savedSnapshot` property in ChoreographerViewModel
+- `hasUnsavedChanges` computed property compares `currentScene` to `savedSnapshot`
+- Snapshot set on init (with existing scene), save, load, and newScene
+- New scenes with no content are not considered dirty
+- `requestClose()` checks dirty state: shows alert if unsaved, closes directly if clean
+- SwiftUI `.alert()` with Save/Discard/Cancel buttons in ChoreographerPanelView
+- Red window close button intercepted via `windowShouldClose(_:)` delegate in ChoreographerPanelController
+- Save: saves then closes. Discard: closes without saving. Cancel: dismisses alert.
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 118 tests passing
+- Features: Unsaved changes confirmation on choreographer close
+
+---
+
 ## Continuation Prompt
 
 ```
@@ -553,6 +574,7 @@ Current state:
 - 118 unit tests passing
 - 6 behavior types: peek, traverse, stationary, climber, cursorReactive (follow), scene
 - Animation Choreographer with visual waypoint editor, multi-track playback, scene deletion
+- Unsaved changes confirmation dialog (Save/Discard/Cancel) on choreographer close
 - Simplified tray menu: Enabled, Trigger Random, Settings, Choreographer, Quit
 - Settings UI with:
   - Interval/creature/behavior configuration
@@ -562,15 +584,14 @@ Current state:
 - Scene cleanup on sleep/login events (NSWorkspace notifications)
 - Two creatures: "gris" (pixel art, 12 animations) and "pig-gnome" (pixel art, walk + idle)
 
-Recent changes (UR-014):
-- REQ-030 (settings visual polish) was attempted but reverted - inline sliders looked cramped
-- REQ-031: Added system event observers for sleep/lock to clean up active scenes
+Recent changes (UR-015):
+- REQ-032: Unsaved changes confirmation on choreographer close (dirty state tracking + Save/Discard/Cancel alert)
 
 To test: swift build && swift test
 To run app: swift run PocketGrisApp
 To open choreographer: Cmd+Shift+C (while app is running)
 
-All planned work is complete. Potential future work:
+All planned work is complete. Potential future work (confirm before proceeding):
 - Settings menu visual polish (needs different approach than inline sliders)
 - More creatures and sprite art
 - Additional behaviors (dancing, sleeping, window-interacting)

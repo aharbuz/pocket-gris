@@ -117,6 +117,7 @@ Background removal is done manually on the exported raw frames, then processed
 - 118 unit tests
 - Scene management: delete scenes, scenes list in menu bar
 - Per-behavior/scene preview buttons (replaced random trigger)
+- Unsaved changes confirmation dialog on choreographer close (Save/Discard/Cancel)
 
 ### Potential Future Work
 - More creatures and animations

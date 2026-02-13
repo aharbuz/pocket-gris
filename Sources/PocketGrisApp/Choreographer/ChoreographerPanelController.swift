@@ -55,7 +55,7 @@ final class ChoreographerPanelController: NSObject, NSWindowDelegate {
         panel.title = "Choreographer"
         panel.contentView = hostingView
         panel.isFloatingPanel = true
-        panel.level = .floating
+        panel.level = NSWindow.Level(NSWindow.Level.floating.rawValue + 1)
         panel.isReleasedWhenClosed = false
         panel.hidesOnDeactivate = false
 
@@ -69,14 +69,6 @@ final class ChoreographerPanelController: NSObject, NSWindowDelegate {
         panel.delegate = self
         self.window = panel
         panel.makeKeyAndOrderFront(nil)
-    }
-
-    func setAboveOverlay(_ above: Bool) {
-        if above {
-            window?.level = NSWindow.Level(NSWindow.Level.floating.rawValue + 1)
-        } else {
-            window?.level = .floating
-        }
     }
 
     func close() {

@@ -83,9 +83,8 @@ final class ChoreographerController {
         panel.show()
         self.panelController = panel
 
-        // Keep panel above overlay during placement so it stays interactive
-        placingCancellable = vm.$isPlacing.sink { [weak panel, weak overlay] isPlacing in
-            panel?.setAboveOverlay(isPlacing)
+        // During placement mode, make overlay key so it receives mouse events
+        placingCancellable = vm.$isPlacing.sink { [weak overlay] isPlacing in
             if isPlacing {
                 overlay?.makeKey()
             }

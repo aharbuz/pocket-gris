@@ -23,8 +23,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let sceneStorage = SceneStorage()
     private let scenePlayer = ScenePlayer()
     private var choreographerController: ChoreographerController?
+    private var sleepObserver: NSObjectProtocol?
+    private var screenLockObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        setupSystemEventObservers()
         setupMenuBar()
         setupIPC()
         loadCreatures()
@@ -33,11 +36,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        removeSystemEventObservers()
         ipcService.stopListening()
         ipcService.markGUIRunning(false)
         scheduler.stop()
         scenePlayer.cancel()
         choreographerController?.close()
+    }
+
+    // MARK: - System Event Observers
+
+    private func setupSystemEventObservers() {
+        let workspace = NSWorkspace.shared.notificationCenter
+
+        // Observe screen sleep (laptop lid closed, display sleep, etc.)
+        sleepObserver = workspace.addObserver(
+            forName: NSWorkspace.screensDidSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleSystemSleepOrLock()
+        }
+
+        // Observe session resign (screen locked, login screen shown)
+        screenLockObserver = workspace.addObserver(
+            forName: NSWorkspace.sessionDidResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleSystemSleepOrLock()
+        }
+    }
+
+    private func removeSystemEventObservers() {
+        let workspace = NSWorkspace.shared.notificationCenter
+        if let observer = sleepObserver {
+            workspace.removeObserver(observer)
+            sleepObserver = nil
+        }
+        if let observer = screenLockObserver {
+            workspace.removeObserver(observer)
+            screenLockObserver = nil
+        }
+    }
+
+    private func handleSystemSleepOrLock() {
+        // Cancel any active scene playback
+        scenePlayer.cancel()
+
+        // Close any single creature window
+        creatureWindow?.close()
+        creatureWindow = nil
     }
 
     // MARK: - Menu Bar

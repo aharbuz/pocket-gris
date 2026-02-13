@@ -622,6 +622,37 @@ Checked Swift/SwiftUI patterns via Context7. Findings: 5 Critical, 11 High, 21 M
 
 ---
 
+## Session: 2026-02-13 (do-work queue processing)
+
+#### Deferred Audit Remediation — Non-Large Items
+
+Processed 3 requests from the do-work queue (UR-016 deferred audit items):
+
+**REQ-034: Typed behavior metadata** (Route C) → ddd5f3e
+- Replaced `BehaviorState.metadata: [String: String]` with typed `BehaviorMetadata` enum
+- Created `BehaviorMetadata.swift` with 6 per-behavior structs: PeekMetadata, TraverseMetadata, StationaryMetadata, ClimberMetadata, FollowMetadata, ScriptedMetadata
+- Enum cases: `.none`, `.peek(...)`, `.traverse(...)`, etc. — naturally Equatable + Sendable
+- Removed unused metadata keys: startEdge/endEdge (Traverse), hiddenOffset (Stationary), windowEdge/climbDirection (Climber), lastCursorX/Y (Follow)
+- Updated CLI with `dictionaryRepresentation` for backward-compatible JSON output
+- Updated 4 test assertions from string-based to typed pattern matching
+
+**REQ-038: IPC async + ChoreographerController unification** (Route B) → 0f8b7fc
+- Added async `send(_:timeout:)` overload to IPCService using `Task.sleep`
+- Extracted `writeCommand(_:)` helper to isolate NSLock from async context
+- Unified `openChoreographer()` and `openChoreographerWithScene(_:)` into single method
+
+**REQ-040: Multi-monitor coordinate fixes** (Route B) → c330825
+- ScenePlayer: Added `screenForTrack(_:)` — places tracks on screen matching first waypoint
+- CursorTracker: Y-flip now uses `NSMouseInRect` to find actual cursor screen + `screen.frame.maxY`
+- CreatureViewModel: Same fix in fallback cursor path
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 128 tests passing
+- Queue: 3 LARGE items remaining (REQ-033 Swift 6 actors, REQ-037 macOS 14 bump, REQ-041 test coverage)
+
+---
+
 ## Continuation Prompt
 
 ```

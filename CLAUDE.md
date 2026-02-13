@@ -111,14 +111,16 @@ Background removal is done manually on the exported raw frames, then processed
 - GlobalCursorTracker - System-wide cursor tracking using NSEvent monitors
 - Settings UI - SwiftUI window with interval sliders, creature/behavior toggles, weights
 - Launch at login - SMAppService (macOS 13+), graceful fallback for SPM builds
-- Multi-monitor support - Random screen selection for creature appearances
+- Multi-monitor support - Screen-aware placement (waypoint-based for scenes, random for behaviors)
 - Menu bar app with IPC
 - Smooth animation system with easing
-- 118 unit tests
+- 128 unit tests
 - Scene management: delete scenes, scenes list in menu bar
 - Per-behavior/scene preview buttons (replaced random trigger)
 - Unsaved changes confirmation dialog on choreographer close (Save/Discard/Cancel)
 - Codebase audit remediation: CVDisplayLink safety, IPC security hardening, path sanitization, weighted random fix, dead code removal
+- Typed behavior metadata: `BehaviorMetadata` enum replaces `[String: String]` dictionary
+- IPC async: `IPCService.send()` async overload with `Task.sleep`
 
 ### Potential Future Work
 - More creatures and animations
@@ -134,7 +136,7 @@ Background removal is done manually on the exported raw frames, then processed
 
 - Use `@MainActor` for all UI-related code
 - Behaviors must be `Sendable`
-- Store ephemeral data in `BehaviorState.metadata` dictionary
+- Store ephemeral data in typed `BehaviorMetadata` structs (enum cases on `BehaviorState.metadata`)
 - Emit `BehaviorEvent`s for state changes, don't mutate external state
 - Personality traits should affect behavior parameters (duration, speed, sensitivity)
 
@@ -145,11 +147,12 @@ Background removal is done manually on the exported raw frames, then processed
 - AppDelegate is NOT `@MainActor` - classes instantiated as its properties (ScenePlayer, ChoreographerController) can't be `@MainActor` either
 - Launch at login requires a proper .app bundle; SPM builds will log a warning but continue
 - `onChange(of:)` single-parameter form is deprecated but cannot use 2-param replacement until deployment target bumps from macOS 13 to 14
-- Multi-monitor: ScenePlayer places tracks on random screens ignoring waypoint coordinates; cursor Y-flip uses only `NSScreen.main`
+- Multi-monitor: ~~ScenePlayer places tracks on random screens~~ FIXED; ~~cursor Y-flip uses only NSScreen.main~~ FIXED
 
 ## Files to Know
 
 - `Sources/PocketGrisCore/Behavior/Behavior.swift` - Protocol + Registry
+- `Sources/PocketGrisCore/Behavior/BehaviorMetadata.swift` - Typed metadata structs + enum
 - `Sources/PocketGrisCore/Behavior/PeekBehavior.swift` - Reference implementation
 - `Sources/PocketGrisCore/Behavior/ClimberBehavior.swift` - Window-aware behavior
 - `Sources/PocketGrisCore/Behavior/FollowBehavior.swift` - Cursor-following behavior

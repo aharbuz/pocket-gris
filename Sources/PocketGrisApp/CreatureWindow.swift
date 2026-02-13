@@ -87,7 +87,7 @@ final class CreatureWindow: NSWindow {
         self.onComplete = onComplete
         self.viewModel = vm
 
-        viewModel?.onComplete = { [weak self] in
+        vm.onComplete = { [weak self] in
             DispatchQueue.main.async {
                 self?.close()
                 self?.onComplete?()
@@ -95,7 +95,7 @@ final class CreatureWindow: NSWindow {
         }
 
         // Create SwiftUI view
-        let spriteView = SpriteView(viewModel: viewModel!)
+        let spriteView = SpriteView(viewModel: vm)
         let hostingView = NSHostingView(rootView: spriteView)
         hostingView.frame = contentView?.bounds ?? frame
 
@@ -105,7 +105,7 @@ final class CreatureWindow: NSWindow {
         makeKeyAndOrderFront(nil)
 
         // Start behavior
-        viewModel?.start()
+        vm.start()
 
         // Start animation loop
         startDisplayLink()
@@ -119,6 +119,10 @@ final class CreatureWindow: NSWindow {
 
     // MARK: - Display Link
 
+    deinit {
+        stopDisplayLink()
+    }
+
     private func startDisplayLink() {
         var link: CVDisplayLink?
         CVDisplayLinkCreateWithActiveCGDisplays(&link)
@@ -129,8 +133,14 @@ final class CreatureWindow: NSWindow {
 
         let callback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
             guard let userInfo = userInfo else { return kCVReturnSuccess }
+            let now = CACurrentMediaTime()
             let window = Unmanaged<CreatureWindow>.fromOpaque(userInfo).takeUnretainedValue()
-            window.handleFrame()
+            DispatchQueue.main.async { [weak window] in
+                guard let window = window else { return }
+                let deltaTime = now - window.lastFrameTime
+                window.lastFrameTime = now
+                window.viewModel?.update(deltaTime: deltaTime)
+            }
             return kCVReturnSuccess
         }
 
@@ -143,15 +153,5 @@ final class CreatureWindow: NSWindow {
         guard let link = displayLink else { return }
         CVDisplayLinkStop(link)
         displayLink = nil
-    }
-
-    private func handleFrame() {
-        let now = CACurrentMediaTime()
-        let deltaTime = now - lastFrameTime
-        lastFrameTime = now
-
-        DispatchQueue.main.async { [weak self] in
-            self?.viewModel?.update(deltaTime: deltaTime)
-        }
     }
 }

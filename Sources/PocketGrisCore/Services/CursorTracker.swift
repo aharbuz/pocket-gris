@@ -18,7 +18,6 @@ public protocol CursorTracker: Sendable {
 public final class GlobalCursorTracker: CursorTracker, @unchecked Sendable {
     private let lock = NSLock()
     private var currentPosition: Position?
-    private var previousPosition: Position?
     private var lastUpdateTime: TimeInterval = 0
     private var velocity: Position = .zero
 
@@ -123,7 +122,6 @@ public final class GlobalCursorTracker: CursorTracker, @unchecked Sendable {
             )
         }
 
-        previousPosition = currentPosition
         currentPosition = newPosition
         lastUpdateTime = now
     }

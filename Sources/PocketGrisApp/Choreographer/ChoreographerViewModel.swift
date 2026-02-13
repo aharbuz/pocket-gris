@@ -696,8 +696,8 @@ final class ChoreographerViewModel: ObservableObject {
         let displayLinkOutputCallback: CVDisplayLinkOutputCallback = { _, _, _, _, _, userInfo -> CVReturn in
             guard let userInfo = userInfo else { return kCVReturnSuccess }
             let viewModel = Unmanaged<ChoreographerViewModel>.fromOpaque(userInfo).takeUnretainedValue()
-            DispatchQueue.main.async {
-                viewModel.updateSmoothPosition()
+            DispatchQueue.main.async { [weak viewModel] in
+                viewModel?.updateSmoothPosition()
             }
             return kCVReturnSuccess
         }

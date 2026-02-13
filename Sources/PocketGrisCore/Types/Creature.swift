@@ -23,7 +23,7 @@ public enum Personality: String, CaseIterable, Codable, Sendable {
         case .shy: return 1.5      // Fast
         case .curious: return 1.0  // Medium
         case .mischievous: return 1.0
-        case .chaotic: return Double.random(in: 0.5...2.0) // Variable
+        case .chaotic: return 1.2  // Slightly erratic
         }
     }
 

@@ -1,10 +1,8 @@
 import SwiftUI
 import PocketGrisCore
 
-// Disambiguate from SwiftUI.Settings and Scene
+// Disambiguate from SwiftUI.Settings
 typealias AppSettings = PocketGrisCore.Settings
-typealias PGSceneLocal = PocketGrisCore.Scene
-typealias PGSceneStorageLocal = PocketGrisCore.SceneStorage
 
 /// SwiftUI settings window for configuring Pocket Gris
 struct SettingsView: View {
@@ -12,10 +10,10 @@ struct SettingsView: View {
 
     init(
         creatures: [Creature],
-        sceneStorage: PGSceneStorageLocal,
+        sceneStorage: PGSceneStorage,
         onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void,
-        onPreviewScene: @escaping (PGSceneLocal) -> Void,
-        onEditScene: @escaping (PGSceneLocal) -> Void,
+        onPreviewScene: @escaping (PGScene) -> Void,
+        onEditScene: @escaping (PGScene) -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void
     ) {
         _viewModel = StateObject(wrappedValue: SettingsViewModel(
@@ -372,23 +370,23 @@ final class SettingsViewModel: ObservableObject {
     @Published var sceneWeights: [String: Double]
     @Published var enabledScenes: Set<String>
     @Published var globalSceneWeight: Double = 1.0
-    @Published var scenes: [PGSceneLocal] = []
-    @Published var sceneToDelete: PGSceneLocal?
+    @Published var scenes: [PGScene] = []
+    @Published var sceneToDelete: PGScene?
     @Published var showDeleteConfirmation: Bool = false
 
     let creatures: [Creature]
-    private let sceneStorage: PGSceneStorageLocal
+    private let sceneStorage: PGSceneStorage
     private let onTestBehavior: (Creature?, BehaviorType?) -> Void
-    private let onPreviewScene: (PGSceneLocal) -> Void
-    private let onEditScene: (PGSceneLocal) -> Void
+    private let onPreviewScene: (PGScene) -> Void
+    private let onEditScene: (PGScene) -> Void
     private let onSettingsChanged: (AppSettings) -> Void
 
     init(
         creatures: [Creature],
-        sceneStorage: PGSceneStorageLocal,
+        sceneStorage: PGSceneStorage,
         onTestBehavior: @escaping (Creature?, BehaviorType?) -> Void,
-        onPreviewScene: @escaping (PGSceneLocal) -> Void,
-        onEditScene: @escaping (PGSceneLocal) -> Void,
+        onPreviewScene: @escaping (PGScene) -> Void,
+        onEditScene: @escaping (PGScene) -> Void,
         onSettingsChanged: @escaping (AppSettings) -> Void
     ) {
         let settings = AppSettings.load()
@@ -566,10 +564,6 @@ final class SettingsViewModel: ObservableObject {
         LaunchAtLoginManager.shared.isEnabled = settings.launchAtLogin
     }
 
-    func testBehavior() {
-        onTestBehavior(nil, nil)
-    }
-
     func previewBehavior(_ type: BehaviorType) {
         // Pick first enabled creature, or fallback to any available creature
         let creature: Creature?
@@ -600,15 +594,15 @@ final class SettingsViewModel: ObservableObject {
 
     // MARK: - Scene Actions
 
-    func previewScene(_ scene: PGSceneLocal) {
+    func previewScene(_ scene: PGScene) {
         onPreviewScene(scene)
     }
 
-    func editScene(_ scene: PGSceneLocal) {
+    func editScene(_ scene: PGScene) {
         onEditScene(scene)
     }
 
-    func requestDeleteScene(_ scene: PGSceneLocal) {
+    func requestDeleteScene(_ scene: PGScene) {
         sceneToDelete = scene
         showDeleteConfirmation = true
     }
@@ -636,10 +630,6 @@ final class SettingsViewModel: ObservableObject {
         showDeleteConfirmation = false
     }
 
-    func reloadScenes() {
-        scenes = sceneStorage.loadAll()
-    }
-
     private func buildSettings() -> AppSettings {
         // Calculate effective scene weights: globalSceneWeight * individualSceneWeight
         // Only include enabled scenes
@@ -655,8 +645,11 @@ final class SettingsViewModel: ObservableObject {
             }
         }
 
+        // Preserve current enabled state from persisted settings
+        // (enabled is managed by AppDelegate's menu bar toggle, not settings UI)
+        let currentEnabled = AppSettings.load().enabled
         return AppSettings(
-            enabled: true,
+            enabled: currentEnabled,
             minInterval: minInterval,
             maxInterval: maxInterval,
             launchAtLogin: launchAtLogin,

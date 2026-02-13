@@ -141,6 +141,12 @@ public struct ClimberBehavior: Behavior {
 
             // Calculate progress based on time and speed
             let totalDistance = Position(x: startX, y: startY).distance(to: Position(x: endX, y: endY))
+            guard totalDistance > 0 else {
+                state.phase = .exit
+                events.append(.phaseChanged(.exit))
+                state.startTime = context.currentTime
+                return events
+            }
             let distanceTraveled = speed * elapsed
             let progress = min(distanceTraveled / totalDistance, 1.0)
 

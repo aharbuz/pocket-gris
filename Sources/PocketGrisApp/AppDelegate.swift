@@ -18,7 +18,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let windowTracker = AccessibilityWindowTracker()
     private let cursorTracker = GlobalCursorTracker()
     private var isEnabled = true
-    private var scenesEnabled = true
     private let settingsWindowController = SettingsWindowController()
     private let sceneStorage = SceneStorage()
     private let scenePlayer = ScenePlayer()
@@ -289,7 +288,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let settings = Settings.load()
         scheduler.updateSettings(settings)
         isEnabled = settings.enabled
-        scenesEnabled = settings.scenesEnabled
 
         scheduler.setUnifiedTriggerHandler { [weak self] trigger in
             switch trigger {

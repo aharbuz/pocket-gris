@@ -5,8 +5,6 @@ public struct StationaryBehavior: Behavior {
     public let type = BehaviorType.stationary
     public let requiredAnimations = ["idle"]
 
-    private let calculator = PositionCalculator()
-
     public init() {}
 
     public func start(context: BehaviorContext, random: RandomSource) -> BehaviorState {

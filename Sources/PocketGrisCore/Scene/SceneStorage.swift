@@ -109,8 +109,19 @@ public final class SceneStorage: @unchecked Sendable {
 
     // MARK: - Private
 
+    private static func sanitizeId(_ id: String) -> String? {
+        // Only allow alphanumeric, hyphen, underscore, and period characters
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+        let filtered = id.unicodeScalars.filter { allowed.contains($0) }
+        let sanitized = String(String.UnicodeScalarView(filtered))
+        // Reject empty, dot-only, or path-traversal patterns
+        guard !sanitized.isEmpty, sanitized != ".", sanitized != ".." else { return nil }
+        return sanitized
+    }
+
     private func fileURL(for id: String) -> URL {
-        directory.appendingPathComponent("\(id).json")
+        let safeId = Self.sanitizeId(id) ?? "invalid"
+        return directory.appendingPathComponent("\(safeId).json")
     }
 
     private func ensureDirectory() {

@@ -5,8 +5,6 @@ public struct TraverseBehavior: Behavior {
     public let type = BehaviorType.traverse
     public let requiredAnimations = ["walk-left", "idle"]
 
-    private let calculator = PositionCalculator()
-
     public init() {}
 
     public func start(context: BehaviorContext, random: RandomSource) -> BehaviorState {
@@ -112,14 +110,24 @@ public struct TraverseBehavior: Behavior {
                 }
             }
 
-            // Check for cursor proximity - might speed up or slow down
+            // Check for cursor proximity - apply temporary speed boost
+            // (boost is calculated per-frame, not accumulated into stored speed)
             if let cursor = context.cursorPosition {
-                let distance = state.position.distance(to: cursor)
+                let cursorDist = state.position.distance(to: cursor)
                 let sensitivity = context.creature.personality.cursorSensitivity
-                if distance < 150 && sensitivity > 0.3 {
-                    // Speed boost when cursor is near
-                    let boost = 1.0 + (1.0 - distance / 150) * sensitivity
-                    state.metadata["speed"] = String(speed * boost)
+                if cursorDist < 150 && sensitivity > 0.3 {
+                    let boost = 1.0 + (1.0 - cursorDist / 150) * sensitivity
+                    let boostedSpeed = speed * boost
+                    // Recalculate position with boosted speed for this frame
+                    let boostedDistance = boostedSpeed * elapsed
+                    let boostedX = startX + (boostedDistance * direction)
+                    let boostedReachedEnd = (direction > 0 && boostedX >= endX) || (direction < 0 && boostedX <= endX)
+                    if !reachedEnd && !boostedReachedEnd {
+                        let boostedPosition = Position(x: boostedX, y: y)
+                        if boostedPosition != state.position {
+                            state.position = boostedPosition
+                        }
+                    }
                 }
             }
 

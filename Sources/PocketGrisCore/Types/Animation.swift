@@ -21,6 +21,7 @@ public struct Animation: Equatable, Codable, Sendable {
 
     /// Frame filename for given index (0-based)
     public func frameFilename(at index: Int) -> String {
+        guard frameCount > 0 else { return "frame-001.png" }
         let safeIndex = looping ? index % frameCount : min(index, frameCount - 1)
         return String(format: "frame-%03d.png", safeIndex + 1)
     }

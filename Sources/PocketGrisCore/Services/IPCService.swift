@@ -53,9 +53,16 @@ public final class IPCService: @unchecked Sendable {
     private var messageHandler: ((IPCMessage) -> IPCResponse)?
 
     public init() {
+        // Use a per-user subdirectory with restricted permissions instead of bare /tmp
         let tmpDir = FileManager.default.temporaryDirectory
-        self.commandPath = tmpDir.appendingPathComponent("pocket-gris-command.json")
-        self.responsePath = tmpDir.appendingPathComponent("pocket-gris-response.json")
+        let ipcDir = tmpDir.appendingPathComponent("pocket-gris-ipc", isDirectory: true)
+        try? FileManager.default.createDirectory(
+            at: ipcDir,
+            withIntermediateDirectories: true,
+            attributes: [.posixPermissions: 0o700]
+        )
+        self.commandPath = ipcDir.appendingPathComponent("command.json")
+        self.responsePath = ipcDir.appendingPathComponent("response.json")
     }
 
     // MARK: - CLI Side (Send)
@@ -95,6 +102,9 @@ public final class IPCService: @unchecked Sendable {
     // MARK: - GUI Side (Listen)
 
     public func startListening(handler: @escaping (IPCMessage) -> IPCResponse) {
+        // Clean up any existing monitor to avoid leaking file descriptors
+        stopListening()
+
         messageHandler = handler
 
         // Create command file if needed
@@ -152,15 +162,15 @@ public final class IPCService: @unchecked Sendable {
 
     public func isGUIRunning() -> Bool {
         // Check if GUI is listening by looking for recent response capability
-        let marker = FileManager.default.temporaryDirectory
-            .appendingPathComponent("pocket-gris-running")
+        let marker = commandPath.deletingLastPathComponent()
+            .appendingPathComponent("running")
 
         return FileManager.default.fileExists(atPath: marker.path)
     }
 
     public func markGUIRunning(_ running: Bool) {
-        let marker = FileManager.default.temporaryDirectory
-            .appendingPathComponent("pocket-gris-running")
+        let marker = commandPath.deletingLastPathComponent()
+            .appendingPathComponent("running")
 
         if running {
             FileManager.default.createFile(atPath: marker.path, contents: nil)

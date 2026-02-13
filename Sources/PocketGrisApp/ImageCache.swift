@@ -20,12 +20,17 @@ final class ImageCache: @unchecked Sendable {
         }
         lock.unlock()
 
-        // Load from disk
+        // Load from disk (outside lock to avoid blocking other threads)
         guard let image = NSImage(contentsOfFile: path) else {
             return nil
         }
 
         lock.lock()
+        // Double-check: another thread may have inserted while we were loading
+        if let cached = cache[path] {
+            lock.unlock()
+            return cached
+        }
         // Evict if needed
         if cache.count >= maxCacheSize {
             // Simple eviction: remove half

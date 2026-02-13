@@ -186,8 +186,8 @@ public final class BehaviorScheduler: @unchecked Sendable {
         // Build weighted pool of behaviors and scenes
         var pool: [(SchedulerTrigger, Double)] = []
 
-        // Add behavior triggers
-        if let creature = selectRandomCreature() {
+        // Add behavior triggers (only if behaviors are enabled)
+        if settings.behaviorsEnabled, let creature = selectRandomCreature() {
             let available = BehaviorRegistry.shared.availableBehaviors(for: creature)
             for behavior in available {
                 let weight = settings.behaviorWeights[behavior.type.rawValue] ?? 1.0
@@ -213,15 +213,17 @@ public final class BehaviorScheduler: @unchecked Sendable {
         let totalWeight = pool.reduce(0) { $0 + $1.1 }
         guard totalWeight > 0 else { return pool.first?.0 }
 
-        var roll = random.double(in: 0...totalWeight)
+        let roll = random.double(in: 0...totalWeight)
+        var cumulative = 0.0
         for (trigger, weight) in pool {
-            roll -= weight
-            if roll <= 0 {
+            cumulative += weight
+            if roll < cumulative {
                 return trigger
             }
         }
 
-        return pool.first?.0
+        // roll == totalWeight edge case: return last element
+        return pool.last?.0
     }
 
     private func selectRandomCreature() -> Creature? {
@@ -251,14 +253,16 @@ public final class BehaviorScheduler: @unchecked Sendable {
         let totalWeight = weighted.reduce(0) { $0 + $1.1 }
         guard totalWeight > 0 else { return available.first?.type }
 
-        var roll = random.double(in: 0...totalWeight)
+        let roll = random.double(in: 0...totalWeight)
+        var cumulative = 0.0
         for (type, weight) in weighted {
-            roll -= weight
-            if roll <= 0 {
+            cumulative += weight
+            if roll < cumulative {
                 return type
             }
         }
 
-        return available.first?.type
+        // roll == totalWeight edge case: return last element
+        return weighted.last?.0
     }
 }

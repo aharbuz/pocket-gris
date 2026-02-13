@@ -5,6 +5,7 @@ import PocketGrisCore
 /// Manages the choreographer floating panel window
 final class ChoreographerPanelController: NSObject, NSWindowDelegate {
     private var window: NSPanel?
+    private var isClosing = false
     private let viewModel: ChoreographerViewModel
     private let sceneStorage: PGSceneStorage
     private let scenePlayer: ScenePlayer
@@ -71,15 +72,19 @@ final class ChoreographerPanelController: NSObject, NSWindowDelegate {
     }
 
     func setAboveOverlay(_ above: Bool) {
-        // Panel is always above overlay to remain clickable
-        // The 'above' parameter only affects whether overlay is key (for keyboard events)
-        window?.level = NSWindow.Level(NSWindow.Level.floating.rawValue + 1)
+        if above {
+            window?.level = NSWindow.Level(NSWindow.Level.floating.rawValue + 1)
+        } else {
+            window?.level = .floating
+        }
     }
 
     func close() {
+        isClosing = true
         window?.delegate = nil
         window?.close()
         window = nil
+        isClosing = false
     }
 
     // MARK: - NSWindowDelegate
@@ -95,6 +100,7 @@ final class ChoreographerPanelController: NSObject, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         window = nil
+        guard !isClosing else { return }
         viewModel.onClose?()
     }
 }

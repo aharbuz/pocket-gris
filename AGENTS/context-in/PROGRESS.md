@@ -695,6 +695,34 @@ Processed REQ-043 from do-work queue via Route B (explore → implement):
 
 ---
 
+## Session: 2026-02-14 (Synchronization.Mutex migration)
+
+#### Swift 6 Concurrency Migration (REQ-033) → 66ed2b2
+
+Processed REQ-033 from do-work queue via Route C (plan → explore → implement):
+
+- **Package.swift**: Bumped swift-tools-version 5.9 → 6.0, macOS .v14 → .v15 (required for `Synchronization.Mutex`), added `swiftLanguageModes: [.v5]`
+- **10 source files migrated** (12 types), replacing NSLock + `@unchecked Sendable` with `Synchronization.Mutex`:
+  - TimeSource.swift (MockTimeSource) — `Mutex<TimeInterval>`
+  - RandomSource.swift (SeededRandomSource, FixedRandomSource) — inner State structs
+  - WindowTracker.swift (AccessibilityWindowTracker, MockWindowTracker) — `Mutex<Void>` / State
+  - CursorTracker.swift (GlobalCursorTracker, MockCursorTracker) — State with `#if canImport(AppKit)`
+  - SceneStorage.swift (SceneStorage) — `Mutex<Void>` for I/O serialization
+  - Behavior.swift (BehaviorRegistry) — init builds dict before Mutex init
+  - SpriteLoader.swift (SpriteLoader) — private helper refactored to `static loadCreatureImpl(at:state:)`
+  - ImageCache.swift (ImageCache) — double-checked locking preserved with two `withLock` calls
+  - IPCService.swift (IPCService) — `@Sendable` handler annotations
+  - BehaviorScheduler.swift (BehaviorScheduler) — 4 private helpers → static Impl with `inout State`
+- **0 NSLock usages remain**, 0 class-level `@unchecked Sendable` remain
+- No public API changes, no test file changes
+
+### Current State
+- Build: Compiles cleanly
+- Tests: 128 tests passing
+- Queue: REQ-041 (test coverage) — on backburner per user request
+
+---
+
 ## Continuation Prompt
 
 See `AGENTS/.convos/continue/` for the latest continuation prompt.

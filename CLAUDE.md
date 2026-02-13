@@ -122,6 +122,7 @@ Background removal is done manually on the exported raw frames, then processed
 - Typed behavior metadata: `BehaviorMetadata` enum replaces `[String: String]` dictionary
 - IPC async: `IPCService.send()` async overload with `Task.sleep`
 - Track deletion in choreographer: trash icon per track + confirmation dialog
+- Synchronization.Mutex migration: NSLock + `@unchecked Sendable` → `Mutex<State>` across 12 types
 
 ### Potential Future Work
 - More creatures and animations
@@ -129,7 +130,6 @@ Background removal is done manually on the exported raw frames, then processed
 - Custom creature editor
 - Drag-and-drop sprite import
 - Notification-triggered appearances
-- Swift 6 migration (`@unchecked Sendable` + NSLock → actors/Mutex)
 - Test coverage expansion (IPCService, ImageCache, CLI, Settings persistence)
 
 ## Conventions
@@ -139,6 +139,7 @@ Background removal is done manually on the exported raw frames, then processed
 - Store ephemeral data in typed `BehaviorMetadata` structs (enum cases on `BehaviorState.metadata`)
 - Emit `BehaviorEvent`s for state changes, don't mutate external state
 - Personality traits should affect behavior parameters (duration, speed, sensitivity)
+- Thread safety via `Synchronization.Mutex`: inner `State` struct + `Mutex<State>`, use `withLock { }` (not NSLock)
 
 ## Known Issues
 
@@ -146,7 +147,7 @@ Background removal is done manually on the exported raw frames, then processed
 - `Scene` and `SceneStorage` in PocketGrisCore conflict with SwiftUI types - use `PGScene`/`PGSceneStorage` typealiases (defined in `ChoreographerViewModel.swift`)
 - AppDelegate is NOT `@MainActor` - classes instantiated as its properties (ScenePlayer, ChoreographerController) can't be `@MainActor` either
 - Launch at login requires a proper .app bundle; SPM builds will log a warning but continue
-- ~~`onChange(of:)` single-parameter form is deprecated~~ FIXED: Platform bumped to macOS 14, all onChange calls migrated to 2-param form, ObservableObject → @Observable
+- ~~`onChange(of:)` single-parameter form is deprecated~~ FIXED: Platform bumped to macOS 15, all onChange calls migrated to 2-param form, ObservableObject → @Observable
 - Multi-monitor: ~~ScenePlayer places tracks on random screens~~ FIXED; ~~cursor Y-flip uses only NSScreen.main~~ FIXED
 
 ## Files to Know

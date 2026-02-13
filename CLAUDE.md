@@ -121,6 +121,7 @@ Background removal is done manually on the exported raw frames, then processed
 - Codebase audit remediation: CVDisplayLink safety, IPC security hardening, path sanitization, weighted random fix, dead code removal
 - Typed behavior metadata: `BehaviorMetadata` enum replaces `[String: String]` dictionary
 - IPC async: `IPCService.send()` async overload with `Task.sleep`
+- Track deletion in choreographer: trash icon per track + confirmation dialog
 
 ### Potential Future Work
 - More creatures and animations
@@ -129,7 +130,6 @@ Background removal is done manually on the exported raw frames, then processed
 - Drag-and-drop sprite import
 - Notification-triggered appearances
 - Swift 6 migration (`@unchecked Sendable` + NSLock → actors/Mutex)
-- `@Observable` macro migration (requires macOS 14+ platform bump)
 - Test coverage expansion (IPCService, ImageCache, CLI, Settings persistence)
 
 ## Conventions

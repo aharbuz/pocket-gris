@@ -679,6 +679,22 @@ Processed REQ-037 from do-work queue via Route B (explore → implement):
 
 ---
 
+## Session: 2026-02-14
+
+#### Track Deletion in Choreographer (REQ-043) → a094eae
+
+Processed REQ-043 from do-work queue via Route B (explore → implement):
+
+- **ChoreographerViewModel.swift**: Added `trackIndexToDelete`/`showTrackDeleteConfirmation` state, `requestDeleteTrack(at:)`/`confirmDeleteTrack()`/`cancelDeleteTrack()` methods, `trackToDeleteCreatureName` computed property
+- **ChoreographerPanelView.swift**: Added `.alert()` for track deletion confirmation (follows existing scene deletion pattern), visible trash icon button per track row header, updated context menu to route through confirmation
+
+### Current State
+- Build: Compiles cleanly
+- Tests: 128 tests passing
+- Queue: REQ-033 (Swift 6 actors), REQ-041 (test coverage) — both LARGE items requiring user confirmation
+
+---
+
 ## Continuation Prompt
 
 See `AGENTS/.convos/continue/` for the latest continuation prompt.

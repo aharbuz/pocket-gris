@@ -114,7 +114,7 @@ Background removal is done manually on the exported raw frames, then processed
 - Multi-monitor support - Screen-aware placement (waypoint-based for scenes, random for behaviors)
 - Menu bar app with IPC
 - Smooth animation system with easing
-- 180 unit tests
+- 176 unit tests
 - Scene management: delete scenes, scenes list in menu bar
 - Per-behavior/scene preview buttons (replaced random trigger)
 - Unsaved changes confirmation dialog on choreographer close (Save/Discard/Cancel)
@@ -124,6 +124,7 @@ Background removal is done manually on the exported raw frames, then processed
 - Track deletion in choreographer: trash icon per track + confirmation dialog
 - Synchronization.Mutex migration: NSLock + `@unchecked Sendable` → `Mutex<State>` across 12 types
 - Test coverage expansion: IPCService, Settings persistence, CLI logic, generic Cache (extracted from ImageCache), temp dir cleanup
+- Codebase review remediation: Animation preconditions, safe animation unwraps, TraverseBehavior boost fix, ScriptedBehavior bounds guard, IPC file permissions, dead code removal (PositionCalculator, validateBehaviorSupport)
 - Generic `Cache<Key, Value>` in PocketGrisCore (extracted from ImageCache) — thread-safe, eviction-aware
 
 ### Potential Future Work

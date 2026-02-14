@@ -62,7 +62,7 @@ struct SettingsView: View {
                         .foregroundStyle(.secondary)
                         .monospacedDigit()
                 }
-                Slider(value: $viewModel.minInterval, in: 60...3600, step: 60) {
+                Slider(value: $viewModel.minInterval, in: 60...7200, step: 60) {
                     EmptyView()
                 } onEditingChanged: { _ in
                     viewModel.clampIntervals()

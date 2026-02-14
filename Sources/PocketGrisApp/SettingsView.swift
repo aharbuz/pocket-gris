@@ -192,7 +192,6 @@ struct SettingsView: View {
                                         .monospacedDigit()
                                         .frame(width: 30)
                                 }
-                                .padding(.leading, 20)
                             }
                         }
                         .padding(.leading, 16)
@@ -260,7 +259,6 @@ struct SettingsView: View {
                             .monospacedDigit()
                             .frame(width: 30)
                     }
-                    .padding(.leading, 20)
                 }
             }
 
@@ -339,7 +337,6 @@ struct SettingsView: View {
                                         .monospacedDigit()
                                         .frame(width: 30)
                                 }
-                                .padding(.leading, 20)
                             }
                         }
                         .padding(.leading, 16)

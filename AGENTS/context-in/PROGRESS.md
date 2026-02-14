@@ -812,6 +812,23 @@ Three-pronged audit covering dead code, security/safety, and logic/quality acros
 
 ---
 
+## Session: 2026-02-14 (UI polish)
+
+#### Settings Weight Label Alignment (REQ-048) → b91d50e
+
+Processed REQ-048 from do-work queue via Route A (direct implementation):
+
+- **SettingsView.swift**: Removed `.padding(.leading, 20)` from 3 weight slider HStack rows:
+  - Behavior weight sliders (per behavior)
+  - Global scene weight slider (Scenes header)
+  - Individual scene weight sliders (per scene)
+- "Weight" label now left-aligns with the behavior/scene name above it (both share `.padding(.leading, 16)` from parent VStack)
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 176 tests passing
+- Queue: Empty — all work requests processed
+
 ## Continuation Prompt
 
 See `AGENTS/.convos/continue/` for the latest continuation prompt.

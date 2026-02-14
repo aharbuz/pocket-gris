@@ -283,7 +283,7 @@ struct SettingsView: View {
                                 Button {
                                     viewModel.editScene(scene)
                                 } label: {
-                                    Image(systemName: "pencil.circle")
+                                    Image(systemName: "film")
                                         .font(.caption)
                                 }
                                 .buttonStyle(.borderless)

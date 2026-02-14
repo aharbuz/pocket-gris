@@ -737,6 +737,8 @@ final class ChoreographerViewModel {
             return kCVReturnSuccess
         }
 
+        // SAFETY: CVDisplayLinkStop blocks until the current callback completes.
+        // stopDisplayLink() in stopPreview()/deinit guarantees no dangling pointer access.
         let pointer = Unmanaged.passUnretained(self).toOpaque()
         CVDisplayLinkSetOutputCallback(displayLink, displayLinkOutputCallback, pointer)
         CVDisplayLinkStart(displayLink)

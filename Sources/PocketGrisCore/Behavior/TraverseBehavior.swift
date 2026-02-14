@@ -59,8 +59,9 @@ public struct TraverseBehavior: Behavior {
         var events: [BehaviorEvent] = []
 
         // Update animation
-        if state.animation?.advance(by: deltaTime) == true {
-            events.append(.animationFrameChanged(state.animation!.currentFrame))
+        if state.animation?.advance(by: deltaTime) == true,
+           let currentFrame = state.animation?.currentFrame {
+            events.append(.animationFrameChanged(currentFrame))
         }
 
         let elapsed = context.currentTime - state.startTime
@@ -111,19 +112,16 @@ public struct TraverseBehavior: Behavior {
                 }
             }
 
-            // Check for cursor proximity - apply temporary speed boost
-            // (boost is calculated per-frame, not accumulated into stored speed)
-            if let cursor = context.cursorPosition {
+            // Check for cursor proximity - apply per-frame speed boost as additive delta
+            if !reachedEnd, let cursor = context.cursorPosition {
                 let cursorDist = state.position.distance(to: cursor)
                 let sensitivity = context.creature.personality.cursorSensitivity
                 if cursorDist < 150 && sensitivity > 0.3 {
-                    let boost = 1.0 + (1.0 - cursorDist / 150) * sensitivity
-                    let boostedSpeed = speed * boost
-                    // Recalculate position with boosted speed for this frame
-                    let boostedDistance = boostedSpeed * elapsed
-                    let boostedX = startX + (boostedDistance * direction)
+                    let boostFactor = (1.0 - cursorDist / 150) * sensitivity
+                    let extraDistance = speed * boostFactor * deltaTime
+                    let boostedX = state.position.x + extraDistance * direction
                     let boostedReachedEnd = (direction > 0 && boostedX >= endX) || (direction < 0 && boostedX <= endX)
-                    if !reachedEnd && !boostedReachedEnd {
+                    if !boostedReachedEnd {
                         let boostedPosition = Position(x: boostedX, y: y)
                         if boostedPosition != state.position {
                             state.position = boostedPosition

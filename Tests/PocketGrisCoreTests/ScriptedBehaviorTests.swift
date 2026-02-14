@@ -324,6 +324,33 @@ final class ScriptedBehaviorTests: XCTestCase {
         XCTAssertEqual(state.position.y, 200, accuracy: 1.0)
     }
 
+    // MARK: - Bounds Safety
+
+    func testInterpolatePositionWithOutOfBoundsSegmentIndex() {
+        // If metadata were corrupted such that segmentIndex exceeds bounds,
+        // the behavior should not crash — the guard in interpolatePosition returns the last waypoint
+        let track = SceneTrack(
+            creatureId: "test",
+            waypoints: [Position(x: 0, y: 0), Position(x: 100, y: 100)],
+            segments: [SceneSegment(animationName: "walk-left", duration: 1.0)]
+        )
+        let behavior = ScriptedBehavior(track: track)
+        let random = FixedRandomSource()
+        var state = behavior.start(context: makeContext(), random: random)
+
+        // Advance past enter phase normally
+        _ = behavior.update(state: &state, context: makeContext(currentTime: 0.3), deltaTime: 0.3)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Complete segment → exit
+        _ = behavior.update(state: &state, context: makeContext(currentTime: 1.4), deltaTime: 1.1)
+        XCTAssertEqual(state.phase, .exit)
+
+        // Verify no crash occurred and final position is at last waypoint
+        XCTAssertEqual(state.position.x, 100, accuracy: 1.0)
+        XCTAssertEqual(state.position.y, 100, accuracy: 1.0)
+    }
+
     // MARK: - Cancel
 
     func testCancel() {

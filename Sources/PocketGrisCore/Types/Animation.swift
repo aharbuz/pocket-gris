@@ -8,6 +8,8 @@ public struct Animation: Equatable, Codable, Sendable {
     public let looping: Bool
 
     public init(name: String, frameCount: Int, fps: Double = 12, looping: Bool = false) {
+        precondition(frameCount > 0, "frameCount must be positive")
+        precondition(fps > 0, "fps must be positive")
         self.name = name
         self.frameCount = frameCount
         self.fps = fps

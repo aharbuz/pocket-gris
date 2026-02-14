@@ -150,20 +150,6 @@ public final class SpriteLoader: Sendable {
         state.withLock { Array($0.loadedCreatures.values) }
     }
 
-    // MARK: - Validation
-
-    /// Check if a creature has all required animations for a behavior
-    public func validateBehaviorSupport(creature: Creature, behavior: any Behavior) -> Bool {
-        state.withLock { s in
-            for animName in behavior.requiredAnimations {
-                let cacheKey = "\(creature.id)/\(animName)"
-                if s.frameCache[cacheKey] == nil {
-                    return false
-                }
-            }
-            return true
-        }
-    }
 }
 
 // MARK: - Placeholder Sprites

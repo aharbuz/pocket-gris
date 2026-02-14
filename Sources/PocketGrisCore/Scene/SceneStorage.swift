@@ -10,7 +10,9 @@ public final class SceneStorage: Sendable {
         if let dir = directory {
             self.directory = dir
         } else {
-            let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+            guard let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
+                fatalError("Application Support directory not found")
+            }
             self.directory = appSupport
                 .appendingPathComponent("PocketGris", isDirectory: true)
                 .appendingPathComponent("Scenes", isDirectory: true)

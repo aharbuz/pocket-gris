@@ -144,6 +144,8 @@ final class CreatureWindow: NSWindow {
             return kCVReturnSuccess
         }
 
+        // SAFETY: CVDisplayLinkStop blocks until the current callback completes.
+        // stopDisplayLink() in close()/deinit guarantees no dangling pointer access.
         let userInfo = Unmanaged.passUnretained(self).toOpaque()
         CVDisplayLinkSetOutputCallback(displayLink, callback, userInfo)
         CVDisplayLinkStart(displayLink)

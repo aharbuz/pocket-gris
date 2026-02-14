@@ -44,8 +44,9 @@ public struct PeekBehavior: Behavior {
         var events: [BehaviorEvent] = []
 
         // Update animation
-        if state.animation?.advance(by: deltaTime) == true {
-            events.append(.animationFrameChanged(state.animation!.currentFrame))
+        if state.animation?.advance(by: deltaTime) == true,
+           let currentFrame = state.animation?.currentFrame {
+            events.append(.animationFrameChanged(currentFrame))
         }
 
         let elapsed = context.currentTime - state.startTime

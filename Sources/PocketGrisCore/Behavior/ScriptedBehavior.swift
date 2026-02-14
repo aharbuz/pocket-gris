@@ -39,8 +39,9 @@ public struct ScriptedBehavior: Behavior {
         var events: [BehaviorEvent] = []
 
         // Advance animation frames
-        if state.animation?.advance(by: deltaTime) == true {
-            events.append(.animationFrameChanged(state.animation!.currentFrame))
+        if state.animation?.advance(by: deltaTime) == true,
+           let currentFrame = state.animation?.currentFrame {
+            events.append(.animationFrameChanged(currentFrame))
         }
 
         // Extract mutable metadata
@@ -162,6 +163,9 @@ public struct ScriptedBehavior: Behavior {
     }
 
     private func interpolatePosition(segmentIndex: Int, progress: Double, context: BehaviorContext) -> Position {
+        guard segmentIndex >= 0, segmentIndex + 1 < track.waypoints.count else {
+            return track.waypoints.last ?? Position(x: 0, y: 0)
+        }
         let from = track.waypoints[segmentIndex]
         let to = track.waypoints[segmentIndex + 1]
         let t = max(0, min(1, progress))

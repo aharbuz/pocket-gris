@@ -1051,6 +1051,153 @@ final class BehaviorTests: XCTestCase {
         XCTAssertEqual(result?.y, -50)
     }
 
+    // MARK: - TraverseBehavior Cursor Boost Tests
+
+    func testTraverseBehaviorCursorBoostDoesNotTeleport() {
+        let behavior = TraverseBehavior()
+        let creature = makeTraverseCreature()
+        let bounds = ScreenRect(x: 0, y: 0, width: 1920, height: 1080)
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 0
+        )
+        let random = FixedRandomSource(ints: [], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+
+        // Move to perform phase
+        context = BehaviorContext(creature: creature, screenBounds: bounds, currentTime: 0.2)
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.2)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Simulate 5 seconds of movement with no cursor (build up base position)
+        context = BehaviorContext(creature: creature, screenBounds: bounds, currentTime: 5.2)
+        _ = behavior.update(state: &state, context: context, deltaTime: 5.0)
+        let positionBeforeCursor = state.position
+
+        // Now introduce cursor near creature - should NOT cause a position jump
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 5.3,
+            cursorPosition: Position(x: positionBeforeCursor.x + 50, y: positionBeforeCursor.y)
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.1)
+        let positionAfterCursor = state.position
+
+        // Position delta should be small (bounded by speed * deltaTime * boost)
+        // Max speed for curious = 120, max boost factor ~= 1.0, deltaTime = 0.1
+        // So max delta from boost ≈ 120 * 1.0 * 0.1 = 12 pixels
+        let delta = abs(positionAfterCursor.x - positionBeforeCursor.x)
+        XCTAssertLessThan(delta, 50, "Cursor boost should not cause a position teleport (delta: \(delta))")
+    }
+
+    // MARK: - FollowBehavior Screen Edge Clamping Tests
+
+    func testFollowBehaviorClampsToScreenBounds() {
+        let behavior = FollowBehavior()
+        let creature = makeFollowCreature()
+        let bounds = ScreenRect(x: 0, y: 0, width: 1920, height: 1080)
+        // Place cursor at extreme corner
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 0,
+            cursorPosition: Position(x: 1900, y: 1060)
+        )
+        // angle=0.0 → creature starts directly to the right of cursor
+        let random = FixedRandomSource(ints: [], doubles: [0.0, 0.5])
+
+        var state = behavior.start(context: context, random: random)
+
+        // Move to perform phase
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 0.4,
+            cursorPosition: Position(x: 1900, y: 1060)
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.4)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Move cursor way beyond screen bounds
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: bounds,
+            currentTime: 2.0,
+            cursorPosition: Position(x: 3000, y: 2000)
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 1.6)
+
+        // Creature should be clamped within screen bounds
+        XCTAssertGreaterThanOrEqual(state.position.x, bounds.minX)
+        XCTAssertLessThanOrEqual(state.position.x, bounds.maxX)
+        XCTAssertGreaterThanOrEqual(state.position.y, bounds.minY)
+        XCTAssertLessThanOrEqual(state.position.y, bounds.maxY)
+    }
+
+    // MARK: - ClimberBehavior Window Gone Mid-Climb Tests
+
+    func testClimberBehaviorWindowGoneExitsGracefully() {
+        // Window disappears after a few frames of climbing - should exit, not crash
+        let behavior = ClimberBehavior()
+        let creature = makeClimberCreature()
+        let window = ScreenRect(x: 100, y: 100, width: 800, height: 600, windowID: 42)
+        var context = BehaviorContext(
+            creature: creature,
+            screenBounds: ScreenRect(x: 0, y: 0, width: 1920, height: 1080),
+            currentTime: 0,
+            windowFrames: [window]
+        )
+        let random = FixedRandomSource(ints: [0, 0], doubles: [0.5], bools: [true])
+
+        var state = behavior.start(context: context, random: random)
+
+        // Enter → Perform
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 0.3,
+            windowFrames: [window]
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.3)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Do a few frames of climbing
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 1.0,
+            windowFrames: [window]
+        )
+        _ = behavior.update(state: &state, context: context, deltaTime: 0.7)
+        XCTAssertEqual(state.phase, .perform)
+
+        // Window disappears entirely
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 1.1,
+            windowFrames: []
+        )
+        let events = behavior.update(state: &state, context: context, deltaTime: 0.1)
+
+        XCTAssertEqual(state.phase, .exit)
+        XCTAssertTrue(events.contains(.phaseChanged(.exit)))
+
+        // Complete the exit
+        context = BehaviorContext(
+            creature: creature,
+            screenBounds: context.screenBounds,
+            currentTime: 1.5,
+            windowFrames: []
+        )
+        let exitEvents = behavior.update(state: &state, context: context, deltaTime: 0.4)
+        XCTAssertEqual(state.phase, .complete)
+        XCTAssertTrue(exitEvents.contains(.completed))
+    }
+
     // MARK: - Helpers
 
     private func makeFollowCreature() -> Creature {

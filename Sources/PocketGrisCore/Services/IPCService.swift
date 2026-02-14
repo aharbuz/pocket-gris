@@ -91,6 +91,7 @@ public final class IPCService: Sendable {
 
             do {
                 try data.write(to: self.commandPath)
+                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: self.commandPath.path)
             } catch {
                 return IPCResponse(success: false, message: "Failed to write command: \(error)")
             }
@@ -145,6 +146,7 @@ public final class IPCService: Sendable {
             // Write command
             do {
                 try data.write(to: self.commandPath)
+                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: self.commandPath.path)
             } catch {
                 return IPCResponse(success: false, message: "Failed to write command: \(error)")
             }
@@ -219,6 +221,7 @@ public final class IPCService: Sendable {
 
         if let responseData = try? JSONEncoder().encode(response) {
             try? responseData.write(to: responsePath)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: responsePath.path)
         }
     }
 

@@ -759,6 +759,59 @@ Processed REQ-041 from do-work queue via Route C (plan → explore → implement
 
 ---
 
+## Session: 2026-02-14 (codebase review & remediation)
+
+#### Codebase Review & Remediation (Audit #2)
+
+Three-pronged audit covering dead code, security/safety, and logic/quality across all three targets.
+
+**H1: Animation preconditions** → Animation.swift
+- Added `precondition(frameCount > 0)` and `precondition(fps > 0)` to `Animation.init`
+- Prevents divide-by-zero in `duration` and modulo-by-zero in `advance()`
+
+**H2: Safe unwrap in all 6 behaviors** → PeekBehavior, TraverseBehavior, StationaryBehavior, ClimberBehavior, FollowBehavior, ScriptedBehavior
+- Replaced `state.animation!.currentFrame` with safe `if let currentFrame = state.animation?.currentFrame` pattern
+
+**M3: TraverseBehavior cursor boost fix** → TraverseBehavior.swift
+- Changed boost from full-path recalculation (`boostedSpeed * elapsed`) to per-frame additive delta (`speed * boostFactor * deltaTime`)
+- Eliminates position teleport when cursor enters proximity zone
+
+**M4: ScriptedBehavior bounds guard** → ScriptedBehavior.swift
+- Added `guard segmentIndex >= 0, segmentIndex + 1 < track.waypoints.count` to `interpolatePosition`
+- Falls back to last waypoint on out-of-bounds instead of crashing
+
+**M1+M2: CVDisplayLink lifetime documentation** → CreatureWindow.swift, ChoreographerViewModel.swift
+- Added safety comments explaining `CVDisplayLinkStop` blocking guarantees
+
+**M5: SceneStorage force-unwrap** → SceneStorage.swift
+- Replaced `.first!` with `guard let` + `fatalError` for clear diagnostic
+
+**M6: IPC file permissions** → IPCService.swift
+- Set explicit 0o600 permissions on command.json and response.json after writing
+- Directory already had 0o700 permissions
+
+**M7: CursorTracker monitor cleanup** → Verified correct
+- `stopMonitoring()` already nils monitors atomically within `withLock` and checks nil before `removeMonitor`
+
+**L1: Removed PositionCalculator** → Deleted PositionCalculator.swift + PositionCalculatorTests.swift (204 + test lines)
+- Confirmed unused in production via grep
+
+**L2: Removed unused method** → SpriteLoader.swift
+- Removed `validateBehaviorSupport()` (only referenced in its own file)
+
+**New edge-case tests (+4):**
+- AnimationTests: boundary value tests for preconditions
+- BehaviorTests: traverse cursor boost no-teleport, follow screen-edge clamping, climber window-gone full lifecycle
+- ScriptedBehaviorTests: out-of-bounds segment index safety
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 176 tests passing (180 → 176: -8 PositionCalculator, +4 new edge-case)
+- No critical security issues found
+- All HIGH and MEDIUM findings addressed
+
+---
+
 ## Continuation Prompt
 
 See `AGENTS/.convos/continue/` for the latest continuation prompt.

@@ -57,17 +57,22 @@ public final class IPCService: Sendable {
     private let responsePath: URL
     private let state: Mutex<State>
 
-    public init() {
+    public convenience init() {
         // Use a per-user subdirectory with restricted permissions instead of bare /tmp
         let tmpDir = FileManager.default.temporaryDirectory
         let ipcDir = tmpDir.appendingPathComponent("pocket-gris-ipc", isDirectory: true)
+        self.init(directory: ipcDir)
+    }
+
+    /// Internal initializer for test isolation — accepts a custom IPC directory.
+    init(directory: URL) {
         try? FileManager.default.createDirectory(
-            at: ipcDir,
+            at: directory,
             withIntermediateDirectories: true,
             attributes: [.posixPermissions: 0o700]
         )
-        self.commandPath = ipcDir.appendingPathComponent("command.json")
-        self.responsePath = ipcDir.appendingPathComponent("response.json")
+        self.commandPath = directory.appendingPathComponent("command.json")
+        self.responsePath = directory.appendingPathComponent("response.json")
         self.state = Mutex(State())
     }
 

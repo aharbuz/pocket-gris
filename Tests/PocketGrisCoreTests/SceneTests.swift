@@ -3,6 +3,22 @@ import XCTest
 
 final class SceneTests: XCTestCase {
 
+    private var tempDir: URL!
+
+    override func setUp() {
+        super.setUp()
+        tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("scene-tests-\(UUID().uuidString)")
+    }
+
+    override func tearDown() {
+        if let tempDir = tempDir {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+        tempDir = nil
+        super.tearDown()
+    }
+
     // MARK: - Scene Types
 
     func testSceneSegmentDefaults() {
@@ -278,7 +294,6 @@ final class SceneTests: XCTestCase {
     // MARK: - Scene Storage
 
     func testSceneStorageSaveAndLoad() throws {
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let storage = SceneStorage(directory: tempDir)
 
         let scene = Scene(
@@ -298,13 +313,9 @@ final class SceneTests: XCTestCase {
         let loaded = storage.load(id: "test-1")
         XCTAssertNotNil(loaded)
         XCTAssertEqual(loaded, scene)
-
-        // Cleanup
-        try? FileManager.default.removeItem(at: tempDir)
     }
 
     func testSceneStorageLoadAll() throws {
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let storage = SceneStorage(directory: tempDir)
 
         let scene1 = Scene(id: "s1", name: "Alpha Scene", tracks: [])
@@ -317,12 +328,9 @@ final class SceneTests: XCTestCase {
         XCTAssertEqual(all.count, 2)
         XCTAssertEqual(all[0].name, "Alpha Scene")  // sorted by name
         XCTAssertEqual(all[1].name, "Beta Scene")
-
-        try? FileManager.default.removeItem(at: tempDir)
     }
 
     func testSceneStorageDelete() throws {
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let storage = SceneStorage(directory: tempDir)
 
         let scene = Scene(id: "to-delete", name: "Delete Me", tracks: [])
@@ -332,12 +340,9 @@ final class SceneTests: XCTestCase {
 
         try storage.delete(id: "to-delete")
         XCTAssertNil(storage.load(id: "to-delete"))
-
-        try? FileManager.default.removeItem(at: tempDir)
     }
 
     func testSceneStorageOverwrite() throws {
-        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         let storage = SceneStorage(directory: tempDir)
 
         var scene = Scene(id: "overwrite-test", name: "Original", tracks: [])
@@ -348,8 +353,6 @@ final class SceneTests: XCTestCase {
 
         let loaded = storage.load(id: "overwrite-test")
         XCTAssertEqual(loaded?.name, "Updated")
-
-        try? FileManager.default.removeItem(at: tempDir)
     }
 
     // MARK: - Validation

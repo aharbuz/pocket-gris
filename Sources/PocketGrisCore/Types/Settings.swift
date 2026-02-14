@@ -76,7 +76,12 @@ extension Settings {
     }
 
     public static func load() -> Settings {
-        guard let data = try? Data(contentsOf: settingsURL),
+        load(from: settingsURL)
+    }
+
+    /// Load settings from a specific URL (internal for testing)
+    static func load(from url: URL) -> Settings {
+        guard let data = try? Data(contentsOf: url),
               let settings = try? JSONDecoder().decode(Settings.self, from: data) else {
             return .default
         }
@@ -84,9 +89,16 @@ extension Settings {
     }
 
     public func save() throws {
+        try save(to: Self.settingsURL)
+    }
+
+    /// Save settings to a specific URL (internal for testing)
+    func save(to url: URL) throws {
+        let dir = url.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         let data = try encoder.encode(self)
-        try data.write(to: Self.settingsURL)
+        try data.write(to: url)
     }
 }

@@ -3,6 +3,22 @@ import XCTest
 
 final class SpriteLoaderTests: XCTestCase {
 
+    private var tempDir: URL!
+
+    override func setUp() {
+        super.setUp()
+        tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sprite-loader-tests-\(UUID().uuidString)")
+    }
+
+    override func tearDown() {
+        if let tempDir = tempDir {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+        tempDir = nil
+        super.tearDown()
+    }
+
     func testSpriteLoaderInitWithCustomPath() {
         let path = URL(fileURLWithPath: "/tmp/test-sprites")
         let loader = SpriteLoader(resourcesPath: path)
@@ -10,22 +26,16 @@ final class SpriteLoaderTests: XCTestCase {
     }
 
     func testLoadCreaturesFromEmptyDirectory() throws {
-        let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("test-sprites-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
 
         let loader = SpriteLoader(resourcesPath: tempDir)
         let creatures = loader.loadAllCreatures()
 
         XCTAssertEqual(creatures.count, 0)
-
-        try FileManager.default.removeItem(at: tempDir)
     }
 
     func testLoadCreatureWithManifest() throws {
         // Create temp directory with creature manifest
-        let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("test-sprites-\(UUID().uuidString)")
         let creatureDir = tempDir.appendingPathComponent("test-creature")
         let animDir = creatureDir.appendingPathComponent("peek-left")
 
@@ -61,13 +71,9 @@ final class SpriteLoaderTests: XCTestCase {
         let framePath = loader.framePath(creature: "test-creature", animation: "peek-left", frame: 0)
         XCTAssertNotNil(framePath)
         XCTAssertTrue(framePath?.contains("frame-001.png") ?? false)
-
-        try FileManager.default.removeItem(at: tempDir)
     }
 
     func testFramePathOutOfBounds() throws {
-        let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("test-sprites-\(UUID().uuidString)")
         let creatureDir = tempDir.appendingPathComponent("test-creature")
         let animDir = creatureDir.appendingPathComponent("peek-left")
 
@@ -94,13 +100,9 @@ final class SpriteLoaderTests: XCTestCase {
         // Frame index out of bounds should return nil
         let framePath = loader.framePath(creature: "test-creature", animation: "peek-left", frame: 10)
         XCTAssertNil(framePath)
-
-        try FileManager.default.removeItem(at: tempDir)
     }
 
     func testAllFramePaths() throws {
-        let tempDir = FileManager.default.temporaryDirectory
-            .appendingPathComponent("test-sprites-\(UUID().uuidString)")
         let creatureDir = tempDir.appendingPathComponent("test-creature")
         let animDir = creatureDir.appendingPathComponent("idle")
 
@@ -126,7 +128,5 @@ final class SpriteLoaderTests: XCTestCase {
 
         let allPaths = loader.allFramePaths(creature: "test-creature", animation: "idle")
         XCTAssertEqual(allPaths?.count, 4)
-
-        try FileManager.default.removeItem(at: tempDir)
     }
 }

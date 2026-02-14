@@ -147,6 +147,10 @@ struct SettingsView: View {
                     if behaviorType != .scene {
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
+                                Text(viewModel.behaviorDisplayName(behaviorType))
+
+                                Spacer()
+
                                 Button {
                                     viewModel.previewBehavior(behaviorType)
                                 } label: {
@@ -157,8 +161,9 @@ struct SettingsView: View {
                                 .help("Preview \(viewModel.behaviorDisplayName(behaviorType))")
 
                                 Toggle(isOn: viewModel.behaviorEnabledBinding(for: behaviorType)) {
-                                    Text(viewModel.behaviorDisplayName(behaviorType))
+                                    EmptyView()
                                 }
+                                .labelsHidden()
                                 .onChange(of: viewModel.behaviorWeights[behaviorType.rawValue]) { oldValue, newValue in
                                     viewModel.applySettings()
                                 }
@@ -264,12 +269,7 @@ struct SettingsView: View {
                     ForEach(viewModel.scenes, id: \.id) { scene in
                         VStack(alignment: .leading, spacing: 4) {
                             HStack {
-                                Toggle(isOn: viewModel.sceneEnabledBinding(for: scene.id)) {
-                                    Text(scene.name)
-                                }
-                                .onChange(of: viewModel.enabledScenes) { oldValue, newValue in
-                                    viewModel.applySettings()
-                                }
+                                Text(scene.name)
 
                                 Spacer()
 
@@ -303,6 +303,14 @@ struct SettingsView: View {
                                 }
                                 .buttonStyle(.borderless)
                                 .help("Delete \(scene.name)")
+
+                                Toggle(isOn: viewModel.sceneEnabledBinding(for: scene.id)) {
+                                    EmptyView()
+                                }
+                                .labelsHidden()
+                                .onChange(of: viewModel.enabledScenes) { oldValue, newValue in
+                                    viewModel.applySettings()
+                                }
                             }
 
                             if viewModel.isSceneEnabled(scene.id) {

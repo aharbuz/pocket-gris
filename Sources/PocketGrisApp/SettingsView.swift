@@ -118,15 +118,18 @@ struct SettingsView: View {
                         viewModel.behaviorsExpanded.toggle()
                     }
                 } label: {
-                    Image(systemName: "chevron.right")
-                        .rotationEffect(.degrees(viewModel.behaviorsExpanded ? 90 : 0))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    HStack(spacing: 4) {
+                        Image(systemName: "chevron.right")
+                            .rotationEffect(.degrees(viewModel.behaviorsExpanded ? 90 : 0))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text("Behaviors")
+                            .fontWeight(.medium)
+                            .foregroundStyle(.primary)
+                    }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-
-                Text("Behaviors")
-                    .fontWeight(.medium)
 
                 Spacer()
 
@@ -211,15 +214,18 @@ struct SettingsView: View {
                             viewModel.scenesExpanded.toggle()
                         }
                     } label: {
-                        Image(systemName: "chevron.right")
-                            .rotationEffect(.degrees(viewModel.scenesExpanded ? 90 : 0))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.right")
+                                .rotationEffect(.degrees(viewModel.scenesExpanded ? 90 : 0))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text("Scenes")
+                                .fontWeight(.medium)
+                                .foregroundStyle(.primary)
+                        }
+                        .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-
-                    Text("Scenes")
-                        .fontWeight(.medium)
 
                     Spacer()
 

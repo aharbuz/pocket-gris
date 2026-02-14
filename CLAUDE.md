@@ -114,7 +114,7 @@ Background removal is done manually on the exported raw frames, then processed
 - Multi-monitor support - Screen-aware placement (waypoint-based for scenes, random for behaviors)
 - Menu bar app with IPC
 - Smooth animation system with easing
-- 128 unit tests
+- 180 unit tests
 - Scene management: delete scenes, scenes list in menu bar
 - Per-behavior/scene preview buttons (replaced random trigger)
 - Unsaved changes confirmation dialog on choreographer close (Save/Discard/Cancel)
@@ -123,6 +123,8 @@ Background removal is done manually on the exported raw frames, then processed
 - IPC async: `IPCService.send()` async overload with `Task.sleep`
 - Track deletion in choreographer: trash icon per track + confirmation dialog
 - Synchronization.Mutex migration: NSLock + `@unchecked Sendable` → `Mutex<State>` across 12 types
+- Test coverage expansion: IPCService, Settings persistence, CLI logic, generic Cache (extracted from ImageCache), temp dir cleanup
+- Generic `Cache<Key, Value>` in PocketGrisCore (extracted from ImageCache) — thread-safe, eviction-aware
 
 ### Potential Future Work
 - More creatures and animations
@@ -130,7 +132,6 @@ Background removal is done manually on the exported raw frames, then processed
 - Custom creature editor
 - Drag-and-drop sprite import
 - Notification-triggered appearances
-- Test coverage expansion (IPCService, ImageCache, CLI, Settings persistence)
 
 ## Conventions
 
@@ -159,6 +160,7 @@ Background removal is done manually on the exported raw frames, then processed
 - `Sources/PocketGrisCore/Behavior/FollowBehavior.swift` - Cursor-following behavior
 - `Sources/PocketGrisCore/Services/WindowTracker.swift` - Window detection
 - `Sources/PocketGrisCore/Services/CursorTracker.swift` - Global cursor tracking
+- `Sources/PocketGrisCore/Services/Cache.swift` - Generic thread-safe cache (used by ImageCache)
 - `Sources/PocketGrisApp/SettingsView.swift` - SwiftUI settings UI + SettingsViewModel
 - `Sources/PocketGrisApp/SettingsWindowController.swift` - NSWindow host for settings
 - `Sources/PocketGrisApp/LaunchAtLoginManager.swift` - SMAppService wrapper

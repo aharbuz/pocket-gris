@@ -723,6 +723,42 @@ Processed REQ-033 from do-work queue via Route C (plan → explore → implement
 
 ---
 
+## Session: 2026-02-14 (test coverage expansion)
+
+#### Test Coverage Expansion + Cleanup (REQ-041) → 5378431
+
+Processed REQ-041 from do-work queue via Route C (plan → explore → implement):
+
+**Phase 1 — M21 temp dir cleanup:**
+- Refactored `SceneTests.swift` and `SpriteLoaderTests.swift` to use `setUp()/tearDown()` pattern
+- Temp dirs now always cleaned up even if test throws early
+
+**Phase 2 — Settings persistence tests (+8):**
+- Added internal `load(from:)` and `save(to:)` overloads to `Settings.swift` for test isolation
+- Tests: save/load round-trip, missing file default, corrupted file default, empty file, directory creation, overwrite, pretty JSON, all fields
+
+**Phase 3 — IPCService tests (+17):**
+- Added internal `init(directory:)` designated init to `IPCService.swift`
+- Tests: init, directory permissions, IPCMessage/IPCResponse/IPCCommand Codable, GUI running marker, send timeout (sync + async), listener start/stop, two-service communication
+
+**Phase 4 — CLI logic tests (+13):**
+- Created `CLILogicTests.swift` testing PocketGrisCore logic used by CLI
+- Tests: version string, BehaviorRegistry defaults/lookup/animations, BehaviorType rawValues/allCases, BehaviorMetadata dictionaryRepresentation (none, peek, traverse, climber with/without windowID), scheduler simulation
+
+**Phase 5 — Generic Cache extraction + tests (+14):**
+- Created `Sources/PocketGrisCore/Services/Cache.swift` — generic `Cache<Key, Value>` with Mutex, configurable maxSize, half-eviction policy
+- Refactored `ImageCache.swift` to wrap `Cache<String, SendableImage>`
+- Tests: get/set, overwrite, remove, clear, count, eviction at max, eviction preserves recent, getOrInsert, concurrent access
+
+**UR-016 fully archived** — all 9 deferred audit REQs (033-041) complete.
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 180 tests passing (128 → 180, +52 new)
+- Queue: Empty — all work requests processed
+
+---
+
 ## Continuation Prompt
 
 See `AGENTS/.convos/continue/` for the latest continuation prompt.

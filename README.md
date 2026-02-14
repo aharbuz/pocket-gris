@@ -4,7 +4,7 @@ A macOS menu bar app that displays animated sprite characters peeking around win
 
 ## Current Status
 
-**Choreographer Complete** - 116 unit tests passing
+**Choreographer Complete** - 180 unit tests passing
 
 ### Behaviors
 - **Peek** - Creatures peek from screen edges, look around, retreat when cursor approaches

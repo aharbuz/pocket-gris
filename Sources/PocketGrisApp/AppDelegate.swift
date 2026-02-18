@@ -24,6 +24,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var choreographerController: ChoreographerController?
     private var sleepObserver: NSObjectProtocol?
     private var screenLockObserver: NSObjectProtocol?
+    private var displayChangeObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupSystemEventObservers()
@@ -65,6 +66,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             self?.handleSystemSleepOrLock()
         }
+
+        // Observe display configuration changes (monitor plugged/unplugged, resolution change)
+        displayChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleSystemSleepOrLock()
+        }
     }
 
     private func removeSystemEventObservers() {
@@ -76,6 +86,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let observer = screenLockObserver {
             workspace.removeObserver(observer)
             screenLockObserver = nil
+        }
+        if let observer = displayChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            displayChangeObserver = nil
         }
     }
 

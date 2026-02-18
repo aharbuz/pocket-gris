@@ -25,6 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var sleepObserver: NSObjectProtocol?
     private var screenLockObserver: NSObjectProtocol?
     private var displayChangeObserver: NSObjectProtocol?
+    private var systemSleepObserver: NSObjectProtocol?
+    private var systemWakeObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupSystemEventObservers()
@@ -75,6 +77,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ) { [weak self] _ in
             self?.handleSystemSleepOrLock()
         }
+
+        // Observe system sleep — pause scheduler to prevent triggers during sleep
+        systemSleepObserver = workspace.addObserver(
+            forName: NSWorkspace.willSleepNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleSystemSleep()
+        }
+
+        // Observe system wake — resume scheduler
+        systemWakeObserver = workspace.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleSystemWake()
+        }
     }
 
     private func removeSystemEventObservers() {
@@ -91,6 +111,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationCenter.default.removeObserver(observer)
             displayChangeObserver = nil
         }
+        if let observer = systemSleepObserver {
+            workspace.removeObserver(observer)
+            systemSleepObserver = nil
+        }
+        if let observer = systemWakeObserver {
+            workspace.removeObserver(observer)
+            systemWakeObserver = nil
+        }
     }
 
     private func handleSystemSleepOrLock() {
@@ -100,6 +128,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Close any single creature window
         creatureWindow?.close()
         creatureWindow = nil
+    }
+
+    private func handleSystemSleep() {
+        // Stop the scheduler so no new triggers fire during sleep
+        scheduler.stop()
+
+        // Dismiss any active creatures
+        handleSystemSleepOrLock()
+    }
+
+    private func handleSystemWake() {
+        // Resume the scheduler
+        scheduler.start()
     }
 
     // MARK: - Menu Bar

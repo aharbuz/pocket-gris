@@ -829,6 +829,60 @@ Processed REQ-048 from do-work queue via Route A (direct implementation):
 - Tests: ✅ 176 tests passing
 - Queue: Empty — all work requests processed
 
+---
+
+## Session: 2026-02-18
+
+#### Screen Change & Sleep/Wake Handling (UR-023)
+
+**REQ-052: Handle display configuration changes gracefully** (Route B) → 559095d
+- Added `NSApplication.didChangeScreenParametersNotification` observer in AppDelegate
+- On display change (monitor plug/unplug, resolution change), dismisses all active creatures
+- Creatures re-trigger naturally on next scheduler interval with correct screen bounds
+- Follows existing observer pattern (property, setup, cleanup)
+
+**REQ-053: Pause behavior triggers on system sleep** (Route B) → 5c4b266
+- Added `NSWorkspace.willSleepNotification` observer → stops scheduler + dismisses creatures
+- Added `NSWorkspace.didWakeNotification` observer → restarts scheduler
+- Prevents creatures from being triggered during sleep and freezing on wake
+
+**UR-023 fully archived** — both REQs complete.
+
+**Skipped (require co-design):**
+- REQ-049 — Creature sharing (exportable packages) — exploratory, needs user design input
+- REQ-050 — Online content updates — depends on REQ-049, exploratory
+- REQ-051 — Content store/library — depends on REQ-049+050, exploratory
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 176 tests passing
+- Queue: 3 exploratory items remaining (REQ-049, REQ-050, REQ-051) — all require co-design sessions
+
+---
+
+## Session: 2026-02-18 (sprite replacement)
+
+#### Archive & Replace Creatures
+
+- **Archived gris and pig-gnome** to `Resources/Sprites/_archive/` via `git mv`
+  - `_archive/` is invisible to `SpriteLoader.loadAllCreatures()` (no `creature.json` at top level)
+  - Original sprites preserved for reference
+
+- **Generated two new placeholder creatures** with full behavior coverage:
+  - **blob-green** ("Sprout") — green, curious personality
+  - **blob-purple** ("Jinx") — purple, mischievous personality
+  - Each has 12 animations: idle, walk-left, walk-right, climb, peek-left/right/top/bottom, retreat-left/right/top/bottom
+  - All 5 behaviors fully supported (peek, traverse, stationary, climber, cursorReactive)
+
+- **Updated `scripts/generate_sprites.py`** — data-driven, generates both creatures from `CREATURES` list
+- **Created `scripts/slice_spritesheet.py`** — utility for future sprite sheet processing (single + batch mode, flip, scale)
+- **Created `Resources/Sprites/CREDITS.md`** — notes placeholders, ready for real sprite attribution later
+
+### Current State
+- Build: Compiles cleanly
+- Tests: 176 tests passing
+- Creatures: blob-green (Sprout), blob-purple (Jinx) — placeholder art, full animation coverage
+
 ## Continuation Prompt
 
 See `AGENTS/.convos/continue/` for the latest continuation prompt.

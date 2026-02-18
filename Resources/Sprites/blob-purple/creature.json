@@ -1,0 +1,79 @@
+{
+  "id": "blob-purple",
+  "name": "Jinx",
+  "personality": "mischievous",
+  "animations": [
+    {
+      "name": "idle",
+      "frameCount": 8,
+      "fps": 6,
+      "looping": true
+    },
+    {
+      "name": "walk-left",
+      "frameCount": 8,
+      "fps": 10,
+      "looping": true
+    },
+    {
+      "name": "walk-right",
+      "frameCount": 8,
+      "fps": 10,
+      "looping": true
+    },
+    {
+      "name": "climb",
+      "frameCount": 8,
+      "fps": 10,
+      "looping": true
+    },
+    {
+      "name": "peek-left",
+      "frameCount": 10,
+      "fps": 12,
+      "looping": false
+    },
+    {
+      "name": "peek-right",
+      "frameCount": 10,
+      "fps": 12,
+      "looping": false
+    },
+    {
+      "name": "peek-top",
+      "frameCount": 10,
+      "fps": 12,
+      "looping": false
+    },
+    {
+      "name": "peek-bottom",
+      "frameCount": 10,
+      "fps": 12,
+      "looping": false
+    },
+    {
+      "name": "retreat-left",
+      "frameCount": 8,
+      "fps": 12,
+      "looping": false
+    },
+    {
+      "name": "retreat-right",
+      "frameCount": 8,
+      "fps": 12,
+      "looping": false
+    },
+    {
+      "name": "retreat-top",
+      "frameCount": 8,
+      "fps": 12,
+      "looping": false
+    },
+    {
+      "name": "retreat-bottom",
+      "frameCount": 8,
+      "fps": 12,
+      "looping": false
+    }
+  ]
+}

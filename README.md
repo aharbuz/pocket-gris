@@ -1,137 +1,182 @@
 # Pocket-Gris
 
-A macOS menu bar app that displays animated sprite characters peeking around windows.
+A macOS menu bar app that displays animated sprite creatures that peek around screen edges, walk across your desktop, climb windows, and follow your cursor.
 
-## Current Status
+## Install
 
-**Choreographer Complete** - 180 unit tests passing
+Download the latest `.dmg` from [Releases](https://github.com/aharbuz/pocket-gris/releases), open it, and drag **Pocket Gris** to Applications.
 
-### Behaviors
-- **Peek** - Creatures peek from screen edges, look around, retreat when cursor approaches
-- **Traverse** - Walk across screen from one edge to the opposite
-- **Stationary** - Appear at edge, perform idle antics, disappear
-- **Climber** - Climb along window edges, follows window if dragged
-- **CursorReactive** - Follow cursor at a safe distance, flee if too close
-- **Scene** - Choreographed multi-creature animations with waypoint paths
+The app is ad-hoc signed (no Apple Developer ID). On first launch, macOS Gatekeeper will block it. To open:
+1. Right-click the app in Applications
+2. Select **Open**
+3. Click **Open** in the dialog
 
-### Features
-- Menu bar app with pawprint icon
-- Animation Choreographer - visual scene editor with multi-track waypoint placement (Cmd+Shift+C)
-- ScenePlayer - multi-track playback, one creature window per track
+You only need to do this once.
+
+**Requirements:** macOS 15.0+ (Sequoia), Apple Silicon (arm64)
+
+## Creatures
+
+Two placeholder creatures ship with the app (real sprite art coming soon):
+
+- **Sprout** (blob-green) — curious personality, 12 animations
+- **Jinx** (blob-purple) — mischievous personality, 12 animations
+
+Both support all five behaviors.
+
+## Behaviors
+
+- **Peek** — Creatures peek from screen edges, look around, retreat when cursor approaches
+- **Traverse** — Walk across screen from one edge to the opposite
+- **Stationary** — Appear at edge, idle, disappear
+- **Climber** — Climb along window edges, follows window if dragged
+- **Cursor Reactive** — Follow cursor at a safe distance, flee if too close
+- **Scene** — Choreographed multi-creature animations with waypoint paths
+
+## Features
+
+- Menu bar app (no dock icon)
+- Animation Choreographer — visual scene editor with multi-track waypoint placement (Cmd+Shift+C)
 - Settings UI with interval sliders, creature/behavior toggles, weight controls
-- Launch at login support (SMAppService)
-- Multi-monitor support (creatures appear on random screen)
+- Per-behavior and per-scene enable/disable with weight sliders
+- Scene management — create, edit, delete, preview choreographed animations
+- Multi-monitor support — creatures appear on correct screen
+- Launch at login (SMAppService)
+- Graceful sleep/wake and display change handling
 - Floating transparent windows (click-through, visible on all spaces)
-- Smooth sliding animations with easing
-- Global cursor tracking (works across all apps and spaces)
-- Window tracking (creatures can climb window edges)
-- Two creatures: "gris" (pixel art, 12 animations) and "pig-gnome" (pixel art, walk + idle)
-- CLI for triggering and controlling the app
-- IPC communication between CLI and GUI
-- Configurable appearance intervals and behavior weights
-- Per-creature and per-behavior enable/disable
+- Global cursor and window tracking
+- CLI companion for triggering and controlling the app
+- 176 unit tests
 
 ## Architecture
 
-- **Pure SPM** - No xcodeproj, CLI-first design
-- **Swift + AppKit** - Floating transparent windows
-- **SwiftUI** - Sprite rendering inside windows
-- **Behavior System** - Extensible state machine for creature actions
+- **Pure SPM** — No Xcode project, Swift 6.0 toolchain, Swift 5 language mode
+- **Swift + AppKit** — Floating transparent windows, NSStatusItem menu bar
+- **SwiftUI** — Sprite rendering, settings UI, choreographer panel
+- **Behavior system** — Extensible state machine pattern with typed metadata
+- **Thread safety** — `Synchronization.Mutex` throughout (no NSLock)
 
-## Building
+## Building from Source
 
 ```bash
 swift build
 swift test
-swift run pocketgris version
+swift run PocketGrisApp          # Run the menu bar app
 ```
 
-## Running
+### Building a Release .dmg
 
 ```bash
-# Start the menu bar app
-swift run PocketGrisApp
-
-# Trigger a creature (while app is running)
-swift run pocketgris trigger --gui
-swift run pocketgris trigger --behavior traverse --gui
-swift run pocketgris trigger --behavior stationary --gui
-swift run pocketgris trigger --behavior climber --gui
-swift run pocketgris trigger --behavior cursorReactive --gui
+./scripts/build-release.sh           # Build + test + create .dmg
+./scripts/build-release.sh --skip-tests
 ```
 
-## Structure
+Output: `.build/release-bundle/PocketGris-<version>.dmg`
+
+## CLI
+
+```bash
+swift run pocketgris version
+swift run pocketgris trigger --gui                          # Random behavior
+swift run pocketgris trigger --behavior traverse --gui      # Specific behavior
+swift run pocketgris trigger --behavior cursorReactive --gui
+swift run pocketgris creatures list
+swift run pocketgris behaviors list
+swift run pocketgris simulate --seconds 3600
+swift run pocketgris control enable|disable|cancel
+```
+
+## Project Structure
 
 ```
 Sources/
 ├── PocketGrisCore/      # Pure Swift library, zero UI deps
-│   ├── Behavior/        # Behavior protocol and implementations
-│   ├── Scene/           # Scene types, storage, choreography data model
+│   ├── Behavior/        # Behavior protocol + 6 implementations
+│   ├── Scene/           # Scene types, storage, choreography data
 │   ├── Types/           # Position, Creature, Animation, etc.
-│   └── Services/        # Scheduler, SpriteLoader, IPC, WindowTracker
-├── PocketGrisCLI/       # CLI for testing/control
+│   └── Services/        # Scheduler, SpriteLoader, IPC, Cache, trackers
+├── PocketGrisCLI/       # CLI (ArgumentParser)
 └── PocketGrisApp/       # Menu bar app
-    ├── AppDelegate      # Menu bar setup, IPC handling
-    ├── CreatureWindow   # Floating transparent window
-    ├── CreatureViewModel # Bridges Core to SwiftUI
-    ├── SpriteView       # SwiftUI sprite rendering
-    ├── ScenePlayer      # Multi-track scene coordinator
-    ├── SettingsView     # SwiftUI settings UI
-    ├── SettingsWindowController # Settings window management
-    ├── LaunchAtLoginManager    # SMAppService wrapper
-    └── Choreographer/   # Animation scene editor
-        ├── ChoreographerController    # Overlay + panel lifecycle
-        ├── ChoreographerViewModel     # Shared state
-        ├── ChoreographerOverlayWindow # Fullscreen overlay
-        ├── ChoreographerOverlayView   # Waypoint/path rendering
-        ├── ChoreographerPanelController # Tool panel
-        └── ChoreographerPanelView     # Panel UI controls
+    └── Choreographer/   # Animation scene editor (overlay + panel)
 
 Resources/
 └── Sprites/
-    ├── gris/            # Test creature (generated)
-    │   ├── creature.json
-    │   ├── peek-*/      # Directional peek animations
-    │   ├── retreat-*/   # Retreat animations
-    │   ├── walk-*/      # Walking animations
-    │   ├── climb/       # Climbing animation
-    │   └── idle/        # Idle animation
-    └── pig-gnome/       # Pixel art creature
-        ├── creature.json
-        ├── walk-left/   # Walking left (4 frames)
-        ├── walk-right/  # Walking right (4 frames)
-        └── idle/        # Idle animation (2 frames)
-```
-
-## CLI Commands
-
-```bash
-pocketgris version                              # Show version
-pocketgris status [--gui]                       # Show status
-pocketgris trigger [--creature X] [--behavior Y] [--gui]  # Trigger appearance
-pocketgris creatures list                       # List available creatures
-pocketgris behaviors list                       # List available behaviors
-pocketgris simulate --seconds 3600              # Simulate scheduling
-pocketgris control enable|disable|cancel        # Control the app
+    ├── blob-green/      # "Sprout" — 12 animations (placeholder art)
+    ├── blob-purple/     # "Jinx" — 12 animations (placeholder art)
+    └── _archive/        # Retired creatures (gris, pig-gnome)
 ```
 
 ## Adding Creatures
 
-Create a folder in `Resources/Sprites/` with:
+Create a folder in `Resources/Sprites/<creature-id>/` with a `creature.json` manifest and one subfolder per animation containing numbered PNG frames.
+
+### Folder Structure
 
 ```
 my-creature/
-├── creature.json        # Manifest with personality and animations
-├── idle/               # Required: idle animation frames
+├── creature.json
+├── idle/
 │   ├── frame-001.png
+│   ├── frame-002.png
 │   └── ...
-├── peek-left/          # Required for peek behavior
-├── retreat-left/       # Required for peek behavior
-├── walk-left/          # Required for traverse behavior
-└── walk-right/         # Required for traverse behavior
+├── walk-left/
+├── walk-right/
+├── climb/
+├── peek-left/
+├── peek-right/
+├── peek-top/
+├── peek-bottom/
+├── retreat-left/
+├── retreat-right/
+├── retreat-top/
+└── retreat-bottom/
 ```
 
-See `scripts/generate_sprites.py` for generating placeholder sprites.
+### Manifest (creature.json)
+
+```json
+{
+  "id": "my-creature",
+  "name": "Display Name",
+  "personality": "curious",
+  "animations": [
+    { "name": "idle", "frameCount": 8, "fps": 6, "looping": true },
+    { "name": "walk-left", "frameCount": 8, "fps": 10, "looping": true },
+    { "name": "walk-right", "frameCount": 8, "fps": 10, "looping": true },
+    { "name": "climb", "frameCount": 8, "fps": 10, "looping": true },
+    { "name": "peek-left", "frameCount": 10, "fps": 12, "looping": false },
+    { "name": "retreat-left", "frameCount": 8, "fps": 12, "looping": false }
+  ]
+}
+```
+
+**Personality** affects behavior parameters (speed, duration, sensitivity): `shy`, `curious`, `mischievous`, or `chaotic`.
+
+### Animations per Behavior
+
+| Behavior | Required animations |
+|----------|-------------------|
+| Peek | `peek-left/right/top/bottom`, `retreat-left/right/top/bottom` |
+| Traverse | `walk-left`, `walk-right` |
+| Stationary | `idle` |
+| Climber | `climb` |
+| Cursor Reactive | `idle`, `walk-left`, `walk-right` |
+
+A creature only needs the animations for the behaviors you want it to support. At minimum, provide `idle`.
+
+### Generating Placeholder Sprites
+
+```bash
+python3 scripts/generate_sprites.py
+```
+
+### Extracting Sprites from Video
+
+```bash
+python3 scripts/extract_sprites.py \
+    --input "animation.mp4" --output output-dir/ \
+    --start 0.5 --end 4 --detect-cycle --cycle-threshold 0.7
+```
 
 ## License
 

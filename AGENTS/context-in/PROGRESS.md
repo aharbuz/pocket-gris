@@ -883,6 +883,34 @@ Processed REQ-048 from do-work queue via Route A (direct implementation):
 - Tests: 176 tests passing
 - Creatures: blob-green (Sprout), blob-purple (Jinx) — placeholder art, full animation coverage
 
+---
+
+## Session: 2026-02-20
+
+#### Release Infrastructure & README Overhaul
+
+**Release build pipeline** → ba723b0
+- Created `Sources/PocketGrisApp/Info.plist` — app bundle config (LSUIElement menu bar app, bundle ID `com.aharbuz.pocket-gris`, macOS 15+)
+- Created `scripts/build-release.sh` — builds release binary, assembles `.app` bundle (copies executable + sprites into Contents/), ad-hoc code signs, creates `.dmg` with Applications symlink for drag-install
+- Built and verified `PocketGris-0.1.0.dmg` (971K, signature valid, checksum valid)
+
+**GitHub Release v0.1.0** → https://github.com/aharbuz/pocket-gris/releases/tag/v0.1.0
+- Tagged `v0.1.0`, uploaded `.dmg` as release asset
+- Release notes cover features, installation steps, requirements
+
+**README overhaul** → 789f8cc
+- Added Install section with .dmg download link and Gatekeeper right-click instructions
+- Noted placeholder creature art (real sprites coming soon)
+- Expanded "Adding Creatures" with full manifest JSON example, personality options, per-behavior animation requirements table, sprite extraction tools
+- Updated: creatures (gris/pig-gnome → Sprout/Jinx), test count (176), platform (macOS 15), architecture (Swift 6.0, Mutex), features (scene management, sleep/wake, display changes)
+- Added build-release.sh instructions, trimmed structure section
+
+### Current State
+- Build: ✅ Compiles cleanly
+- Tests: ✅ 176 tests passing
+- Release: ✅ v0.1.0 .dmg on GitHub
+- Queue: Empty — all work requests processed
+
 ## Continuation Prompt
 
 See `AGENTS/.convos/continue/` for the latest continuation prompt.

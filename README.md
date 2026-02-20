@@ -178,6 +178,18 @@ python3 scripts/extract_sprites.py \
     --start 0.5 --end 4 --detect-cycle --cycle-threshold 0.7
 ```
 
+## Future Work
+
+- Real sprite art to replace placeholder creatures
+- App icon (.icns)
+- Apple Developer ID code signing and notarization (removes Gatekeeper workaround)
+- Universal binary (arm64 + x86_64) for Intel Mac support
+- More behaviors (dancing, sleeping, window interaction)
+- Creature sharing — exportable creature packages, online content library
+- Custom creature editor with drag-and-drop sprite import
+- Notification-triggered appearances
+- CI/CD with GitHub Actions
+
 ## License
 
 Private project.
